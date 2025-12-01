@@ -1,0 +1,95 @@
+type (
+	ArticleInfo {
+		ID         uint64 `json:"id"`
+		Author     uint64 `json:"author"`
+		Time       string `json:"time"`
+		Title      string `json:"title"`
+		Section    uint32 `json:"section"`
+		Summary    string `json:"summary"`
+		CommentNum int    `json:"comment_num"`
+		LookNum    int    `json:"look_num"`
+		LikeNum    int    `json:like_num`
+		PictureUrl string `json:"url"`
+	}
+	CommentInfo {
+		ID      uint64 `json:"id"`
+		UID     uint64 `json:"uid"`
+		Content string `json:"content"`
+		Time    string `json:"time"`
+	}
+	ArticleListReq {
+		Section uint32 `path:"section"`
+		Page    int    `path:"page"`
+	}
+	ArticleListRsp {
+		Articles []ArticleInfo `json:"articles"`
+	}
+	UserArticleListReq {
+		UID  uint64 `path:"uid"`
+		Page int    `path:"page"'`
+	}
+	UserArticleListRsp {
+		Articles []ArticleInfo `json:"articles"`
+	}
+	HotArticleListRsp {
+		Articles []ArticleInfo `json:"articles"`
+	}
+	ArticleDetailReq {
+		ID uint64 `path:"id"`
+	}
+	ArticleDetailRsp {
+		ArticleInfo
+		Pictures []string `json:"pictures"`
+		Content  string   `json:"content"`
+	}
+	CommentsReq {
+		ID uint64 `path:"id"`
+	}
+	CommentsRsp  {}
+	SendCommentsReq {
+		ID      uint64 `json:"id"`
+		Content string `json:"content"`
+	}
+	LikeReq {
+		ID uint64 `path:"id"`
+	}
+	PictureReq {
+		ID  uint64 `path:"id"`
+		MD5 string `path:"md5"`
+	}
+)
+
+@server (
+	prefix: /api/article
+)
+service article {
+	@handler ArticleList
+	get /articleList/:section/:page (ArticleListReq) returns (ArticleListRsp)
+
+	@handler UserArticleList
+	get /userArticleList/:uid/:page (UserArticleListReq) returns (UserArticleListRsp)
+
+	@handler ArticleDetail
+	get /articleDetail/:id (ArticleDetailReq) returns (ArticleDetailRsp)
+
+	@handler Comments
+	get /comments/:id (CommentsReq) returns (CommentsRsp)
+
+	@handler GetPictures
+	get /articlePictures/:id/:md5 (PictureReq)
+}
+
+@server (
+	prefix: /api/article
+	jwt:    Auth
+)
+service article {
+	@handler SendComments
+	post /sendComments (SendCommentsReq)
+
+	@handler Like
+	post /like (LikeReq)
+
+	@handler CreateArticle
+	post /createArticle
+}

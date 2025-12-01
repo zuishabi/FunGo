@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>帖子详情</title>
+    <link rel="stylesheet" href="/common.css" />
+    <style>
+        body { margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:#f5f6f8; }
+        .detail-shell { max-width:960px; margin:0 auto; padding:24px 16px 40px; }
+        .detail-topbar { display:flex; justify-content:flex-start; margin-bottom:18px; }
+        .back-btn { border:none; background:#2b7cff; color:#fff; padding:8px 18px; border-radius:6px; cursor:pointer; font-size:15px; }
+        .gallery-container { width:100%; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 4px 18px rgba(0,0,0,0.06); margin-bottom:20px; }
+        .carousel { position:relative; width:100%; overflow:hidden; touch-action:pan-y; }
+        .carousel-track { display:flex; transition:transform 320ms ease; will-change:transform; }
+        .carousel-item {
+            flex:0 0 auto;
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            padding:18px;
+            background:#111;
+            width:100%;
+            box-sizing:border-box;
+        }
+        .carousel-item img { max-width:100%; max-height:70vh; object-fit:contain; border-radius:6px; box-shadow:0 8px 20px rgba(0,0,0,0.35); user-select:none; }
+        .carousel-indicators { display:flex; justify-content:center; gap:8px; padding:12px 0; background:#fff; }
+        .carousel-indicator { width:8px; height:8px; border-radius:50%; background:#c8cbd4; cursor:pointer; transition:background 160ms ease; }
+        .carousel-indicator.active { background:#2b7cff; }
+        .article-card { background:#fff; border-radius:10px; padding:20px 22px; box-shadow:0 4px 18px rgba(0,0,0,0.05); }
+        .article-title { font-size:1.8rem; color:#1c1d21; margin:0 0 12px; line-height:1.35; }
+        .article-meta { color:#6b7280; font-size:14px; margin-bottom:18px; display:flex; gap:12px; flex-wrap:wrap; }
+        .article-content { white-space:pre-wrap; line-height:1.8; color:#2f3137; font-size:16px; }
+        @media (max-width:768px) {
+            .detail-shell { padding:16px 12px 32px; }
+            .article-card { padding:16px; }
+            .article-title { font-size:1.4rem; }
+        }
+        .detail-shell {
+            max-width:960px;
+            margin:0 auto;
+            padding:24px 16px 40px;
+            display:flex;
+            flex-direction:column;
+            gap:20px;
+        }
+        .gallery-container,
+        .article-card {
+            width:100%;
+        }
+    </style>
+</head>
+<body>
+<div id="header-container"></div>
+<main class="detail-shell">
+    <div class="detail-topbar">
+        <button class="back-btn" id="back-btn">返回</button>
+    </div>
+    <div class="gallery-container" id="gallery-container" style="display:none;">
+        <div class="carousel" id="carousel">
+            <div class="carousel-track" id="carousel-track"></div>
+        </div>
+        <div class="carousel-indicators" id="carousel-indicators"></div>
+    </div>
+    <article class="article-card">
+        <h1 class="article-title" id="article-title"></h1>
+        <div class="article-meta" id="article-meta"></div>
+        <div class="article-content" id="article-content"></div>
+    </article>
+</main>
+
+<script src="/common.js"></script>
+<script>
+    (async function () {
+        await loadHeader('#header-container');
+
+        const backBtn = document.getElementById('back-btn');
+        backBtn.addEventListener('click', () => history.back());
+
+        const params = new URLSearchParams(location.search);
+        const articleId = parseInt(params.get('id') || '0', 10);
+        if (!articleId) {
+            document.getElementById('article-title').textContent = '无效帖子 ID';
+            return;
+        }
+
+        const galleryContainer = document.getElementById('gallery-container');
+        const carousel = document.getElementById('carousel');
+        const track = document.getElementById('carousel-track');
+        const indicators = document.getElementById('carousel-indicators');
+        const titleEl = document.getElementById('article-title');
+        const metaEl = document.getElementById('article-meta');
+        const contentEl = document.getElementById('article-content');
+
+        let _detailObjectUrls = [];
+        window.addEventListener('beforeunload', () => _detailObjectUrls.forEach(URL.revokeObjectURL));
+
+        try {
+            let detail = await apiFetch(`/api/article/articleDetail/${articleId}`);
+            if (detail && typeof detail === 'object' && detail.code !== undefined && detail.data !== undefined) detail = detail.data;
+            if (!detail) throw new Error('未找到帖子');
+
+            titleEl.textContent = detail.title || detail.Title || '(无标题)';
+            metaEl.innerHTML = [
+                `作者：${escapeHtml(String(detail.author || detail.Author || '匿名'))}`,
+                `时间：${escapeHtml(String(detail.time || detail.Time || detail.created_at || '未知'))}`,
+                detail.section ? `专区：${escapeHtml(String(detail.section))}` : '',
+                typeof detail.look_num !== 'undefined' ? `浏览：${detail.look_num}` : '',
+                typeof detail.like_num !== 'undefined' ? `点赞：${detail.like_num}` : ''
+            ].filter(Boolean).join(' · ');
+            contentEl.innerHTML = escapeHtml(detail.content || detail.Content || '').replace(/\n/g, '<br/>');
+
+            const pics = Array.isArray(detail.pictures) ? detail.pictures :
+                (Array.isArray(detail.Pictures) ? detail.Pictures : []);
+            const fallback = detail.PictureUrl || detail.url || detail.Picture || detail.picture;
+            const sources = pics.length ? pics : (fallback ? [fallback] : []);
+
+            if (!sources.length) {
+                galleryContainer.style.display = 'none';
+            } else {
+                galleryContainer.style.display = '';
+                for (let i = 0; i < sources.length; i++) {
+                    const key = sources[i];
+                    try {
+                        const resp = /^https?:\/\//i.test(key) ? await fetch(key) :
+                            await fetch(`/api/article/articlePictures/${articleId}/${encodeURIComponent(key)}`);
+                        if (!resp?.ok) continue;
+                        const blob = await resp.blob();
+                        const url = URL.createObjectURL(blob);
+                        _detailObjectUrls.push(url);
+
+                        const item = document.createElement('div');
+                        item.className = 'carousel-item';
+                        const img = document.createElement('img');
+                        img.src = url;
+                        img.alt = `图片${i + 1}`;
+                        item.appendChild(img);
+                        track.appendChild(item);
+
+                        const dot = document.createElement('div');
+                        dot.className = 'carousel-indicator';
+                        dot.addEventListener('click', () => goto(i));
+                        indicators.appendChild(dot);
+                    } catch (_) {}
+                }
+                if (track.children.length === 0) galleryContainer.style.display = 'none';
+            }
+
+            let index = 0;
+            let dragging = false;
+            let startX = 0;
+            let startTranslate = 0;
+            let resizeTid = 0;
+
+            function getFrameWidth() {
+                const width = carousel.getBoundingClientRect().width;
+                return width > 0 ? width : 1;
+            }
+
+            function syncIndicators() {
+                Array.from(indicators.children).forEach((dot, i) => {
+                    dot.classList.toggle('active', i === index);
+                });
+            }
+
+            function sizeSlides() {
+                const frameW = getFrameWidth();
+                Array.from(track.children).forEach((item) => {
+                    item.style.width = frameW + 'px';
+                });
+                track.style.width = (frameW * track.children.length) + 'px';
+                track.style.transform = `translateX(${ -index * frameW }px)`;
+                syncIndicators();
+            }
+
+            function goto(newIndex, animate = true) {
+                const max = track.children.length - 1;
+                index = Math.max(0, Math.min(max, newIndex));
+                const frameW = getFrameWidth();
+                track.style.transition = animate ? 'transform 320ms ease' : 'none';
+                track.style.transform = `translateX(${ -index * frameW }px)`;
+                syncIndicators();
+            }
+
+            function pointerDown(e) {
+                if (track.children.length <= 1) return;
+                dragging = true;
+                startX = e.clientX;
+                startTranslate = -index * getFrameWidth();
+                track.style.transition = 'none';
+                try { carousel.setPointerCapture(e.pointerId); } catch (_) {}
+            }
+
+            function pointerMove(e) {
+                if (!dragging) return;
+                const dx = e.clientX - startX;
+                track.style.transform = `translateX(${startTranslate + dx}px)`;
+            }
+
+            function pointerUp(e) {
+                if (!dragging) return;
+                dragging = false;
+                try { carousel.releasePointerCapture(e.pointerId); } catch (_) {}
+                const dx = e.clientX - startX;
+                const threshold = getFrameWidth() * 0.18;
+                if (dx > threshold && index > 0) index--;
+                else if (dx < -threshold && index < track.children.length - 1) index++;
+                goto(index);
+            }
+
+            carousel.addEventListener('pointerdown', pointerDown);
+            carousel.addEventListener('pointermove', pointerMove);
+            carousel.addEventListener('pointerup', pointerUp);
+            carousel.addEventListener('pointercancel', pointerUp);
+            carousel.addEventListener('pointerleave', (e) => { if (dragging) pointerUp(e); });
+
+            window.addEventListener('resize', () => {
+                clearTimeout(resizeTid);
+                resizeTid = setTimeout(() => {
+                    sizeSlides();
+                    goto(index, false);
+                }, 120);
+            });
+
+            if (track.children.length) sizeSlides();
+        } catch (err) {
+            titleEl.textContent = err?.message || '加载失败';
+            metaEl.textContent = '';
+            contentEl.textContent = '';
+            galleryContainer.style.display = 'none';
+        }
+
+        function escapeHtml(str) {
+            return String(str || '').replace(/[&<>\"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
+        }
+    })();
+</script>
+</body>
+</html>

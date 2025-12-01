@@ -1,0 +1,32 @@
+name:
+  FunGoEnv
+
+services:
+  mysql:
+    restart: always
+    container_name: mysql
+    image: mysql
+    networks:
+      - FunGo
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=861214959
+    volumes:
+      - fungo_data:/var/lib/mysql
+  redis:
+    container_name: redis
+    restart: always
+    image: bitnami/redis
+    networks:
+      - FunGo
+    ports:
+      - "6379:6379"
+    environment:
+      - REDIS_PASSWORD=861214959
+
+volumes:
+  fungo_data:
+
+networks:
+  FunGo:

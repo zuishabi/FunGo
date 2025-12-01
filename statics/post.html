@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>发布帖子 - 论坛示例</title>
+    <link rel="stylesheet" href="/common.css" />
+</head>
+<body>
+<div id="header-container"></div>
+
+<main>
+    <section class="content post-form">
+        <h2>发布帖子</h2>
+        <div>
+            <label>标题</label>
+            <input id="post-title" type="text" placeholder="填写标题" />
+        </div>
+        <div style="margin-top:8px;">
+            <label>所在专区</label>
+            <select id="section-select">
+                <!-- 已移除全部分区，保留可发帖的分区 -->
+                <option value="2">技术</option>
+                <option value="3">生活</option>
+            </select>
+        </div>
+        <div style="margin-top:8px;">
+            <label>内容</label>
+            <textarea id="post-content" rows="8" placeholder="写点什么..."></textarea>
+        </div>
+        <div style="margin-top:8px;">
+            <label>上传图片（支持多张）</label>
+            <input id="file-input" type="file" accept="image/*" multiple />
+            <div class="preview-list" id="preview-list"></div>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+            <button id="submit-post" class="primary">发布</button>
+            <button id="cancel-post">取消</button>
+        </div>
+        <div id="post-msg" style="margin-top:8px;color:#d9534f"></div>
+    </section>
+</main>
+
+
+<script src="/common.js"></script>
+<script>
+    (async function(){
+        await loadHeader('#header-container');
+
+        const fileInput = document.getElementById('file-input');
+        const previewList = document.getElementById('preview-list');
+        let files = [];
+
+        function renderPreviews(){
+            previewList.innerHTML = '';
+            files.forEach((f, idx) => {
+                const div = document.createElement('div');
+                div.className = 'preview-item';
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(f);
+                img.onload = ()=> URL.revokeObjectURL(img.src);
+                const rm = document.createElement('div');
+                rm.className = 'preview-remove';
+                rm.textContent = '×';
+                rm.onclick = ()=> { files.splice(idx,1); renderPreviews(); };
+                div.appendChild(img);
+                div.appendChild(rm);
+                previewList.appendChild(div);
+            });
+        }
+
+        fileInput.addEventListener('change', (e)=>{
+            const list = Array.from(e.target.files || []);
+            files = files.concat(list);
+            renderPreviews();
+        });
+
+        document.getElementById('cancel-post').addEventListener('click', ()=> { history.back(); });
+
+        document.getElementById('submit-post').addEventListener('click', async ()=>{
+            const title = document.getElementById('post-title').value.trim();
+            const content = document.getElementById('post-content').value.trim();
+            const section = document.getElementById('section-select').value;
+            const msgEl = document.getElementById('post-msg');
+            msgEl.textContent = '';
+            if (!title) { msgEl.textContent = '请输入标题'; return; }
+            if (!content) { msgEl.textContent = '请输入内容'; return; }
+
+            const fd = new FormData();
+            fd.append('title', title);
+            fd.append('content', content);
+            fd.append('section', section);
+            files.forEach(f => fd.append('files', f));
+
+            try {
+                const token = localStorage.getItem('token');
+                const headers = {};
+                if (token) headers['Authorization'] = 'Bearer ' + token;
+                // 注意：不要手动设置 Content-Type，否则会破坏 FormData 边界
+
+                const res = await fetch('/api/article/createArticle', { method: 'POST', body: fd, headers });
+                const ct = (res.headers.get('content-type') || '').toLowerCase();
+
+                // 处理各种响应情况
+                let payload;
+                if (res.status === 204 || res.status === 205) {
+                    // 无内容，按成功处理或根据业务调整
+                    payload = { code: 0, msg: '' };
+                } else if (ct.includes('application/json')) {
+                    // 尝试安全解析 JSON，捕获解析错误
+                    try {
+                        payload = await res.json();
+                    } catch (err) {
+                        // JSON 解析失败，读取文本作为错误信息
+                        const txt = await res.text();
+                        throw new Error(txt || '响应不是有效的 JSON');
+                    }
+                } else {
+                    // 非 JSON，尝试读取文本并尝试 parse，否则报错
+                    const txt = await res.text();
+                    try {
+                        payload = txt ? JSON.parse(txt) : { code: 0, msg: '' };
+                    } catch (err) {
+                        throw new Error(txt || '服务端返回非 JSON 响应');
+                    }
+                }
+
+                // 兼容后端返回包装结构
+                const body = (payload && payload.data !== undefined && payload.code !== undefined) ? payload : payload;
+
+                if (!body || body.code === undefined) {
+                    throw new Error('未知响应格式');
+                }
+                if (body.code !== 0) throw new Error(body.msg || ('code:' + body.code));
+                alert('发布成功');
+                location.href = '/';
+            } catch (e) {
+                msgEl.textContent = e.message || '发布失败';
+            }
+        });
+    })();
+</script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>登录 - 论坛示例</title>
+    <link rel="stylesheet" href="/common.css" />
+</head>
+<body>
+<div id="header-container"></div>
+
+<main style="padding:24px;max-width:480px;margin:auto">
+    <h2>登录</h2>
+    <div>
+        <label>用户名</label><br/>
+        <input id="login-username" type="text" autocomplete="username" style="width:100%;padding:8px" />
+    </div>
+    <div style="margin-top:8px">
+        <label>密码</label><br/>
+        <input id="login-password" type="password" autocomplete="current-password" style="width:100%;padding:8px" />
+    </div>
+    <div style="margin-top:12px">
+        <button id="do-login" class="primary">登录</button>
+        <a href="/register" style="margin-left:8px">没有账号？注册</a>
+    </div>
+    <div id="login-error" style="color:#d9534f;margin-top:8px"></div>
+</main>
+
+<script src="/common.js"></script>
+<script>
+    (async function(){
+        await loadHeader('#header-container');
+        document.getElementById('do-login').addEventListener('click', async () => {
+            const u = document.getElementById('login-username').value.trim();
+            const p = document.getElementById('login-password').value;
+            const err = document.getElementById('login-error');
+            if (!u || !p) { if (err) err.textContent = '请输入用户名和密码'; return; }
+            try {
+                if (err) err.textContent = '';
+                await doLogin(u,p);
+                // 登录成功后跳回首页
+                location.href = '/';
+            } catch (e) {
+                if (err) err.textContent = e?.message || '登录失败';
+            }
+        });
+    })();
+</script>
+</body>
+</html>

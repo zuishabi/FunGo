@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>论坛示例</title>
+    <link rel="stylesheet" href="/common.css" />
+</head>
+<body>
+<div id="header-container"></div>
+
+<main>
+    <section class="content">
+        <h2 id="list-title">帖子列表</h2>
+        <div id="articles"></div>
+        <div class="pager" id="pager">
+            <button id="prev-page" class="primary">上一页</button>
+            <div id="page-info">第 1 页</div>
+            <button id="next-page" class="primary">下一页</button>
+        </div>
+    </section>
+
+    <aside class="sidebar">
+        <div class="sections" id="sections-box">
+            <h3>专区</h3>
+            <div id="sections-list"></div>
+            <div style="margin-top:12px">
+                <button id="new-post" class="primary" style="width:100%" onclick="location.href='/post'">发布帖子</button>
+            </div>
+        </div>
+    </aside>
+</main>
+
+<script src="/common.js"></script>
+<script>
+    async function resolveUserName(authorId) {
+        if (authorId === null || typeof authorId === 'undefined' || authorId === '') return '匿名';
+        try {
+            const resp = await apiFetch(`/api/user/userInfo/${encodeURIComponent(authorId)}`);
+            const info = resp?.data ?? resp?.user ?? resp;
+            const name = info?.user_name || info?.UserName || info?.username || info?.nick || info?.nickname || info?.name;
+            return name ? String(name) : `用户${authorId}`;
+        } catch (e) {
+            return `用户${authorId}`;
+        }
+    }
+
+    (async function () {
+        await loadHeader('#header-container');
+        const sections = [{id:0,name:'热门'},{id:1,name:'全部'},{id:2,name:'技术'},{id:3,name:'生活'}];
+
+        function escapeHtml(s) {
+            return String(s || '').replace(/[&<>\"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
+        async function refreshHeader() {
+            const host = document.getElementById('header-container');
+            if (!host) return;
+            host.innerHTML = '';
+            await loadHeader('#header-container');
+        }
+
+        function renderSections(activeId) {
+            const box = document.getElementById('sections-list');
+            box.innerHTML = '';
+            sections.forEach((s) => {
+                const div = document.createElement('div');
+                div.className = 'section-item' + (s.id === activeId ? ' active' : '');
+                div.textContent = s.name;
+                div.style.cursor = 'pointer';
+                div.addEventListener('click', () => {
+                    location.hash = s.id === 0 ? '/hot' : `/section/${s.id}/page/1`;
+                });
+                box.appendChild(div);
+            });
+        }
+
+        function parseHash() {
+            const h = location.hash.replace(/^#/, '');
+            if (!h || h === '/' || h === '/posts') return { route: 'list', section: 1, page: 1 };
+            const parts = h.split('/').filter(Boolean);
+            if (parts[0] === 'hot') return { route: 'list', section: 0, page: 1 };
+            if (parts[0] === 'section') {
+                const sid = parseInt(parts[1]) || 1;
+                const pageIndex = parts[2] === 'page' && parseInt(parts[3]) ? parseInt(parts[3]) : 1;
+                return { route: 'list', section: sid, page: pageIndex };
+            }
+            if (parts[0] === 'article') return { route: 'detail', id: parseInt(parts[1]) || 0 };
+            return { route: 'list', section: 1, page: 1 };
+        }
+
+        async function loadArticles(sectionId, page) {
+            const PAGE_SIZE = 10;
+            document.getElementById('list-title').textContent = (sections.find(s => s.id === sectionId)?.name || ('专区 ' + sectionId)) + ' 帖子';
+            const container = document.getElementById('articles');
+            container.innerHTML = '加载中...';
+
+            try {
+                let data = await apiFetch(`/api/article/articleList/${sectionId}/${page}`);
+                if (data && typeof data === 'object' && data.code !== undefined && data.data !== undefined) data = data.data;
+                let arr = [];
+                if (Array.isArray(data)) arr = data;
+                else if (data?.articles) arr = data.articles;
+                else if (data?.Articles) arr = data.Articles;
+                const shown = arr.slice(0, PAGE_SIZE);
+
+                if (shown.length === 0) {
+                    container.innerHTML = '<div style="padding:12px;color:#666">暂无帖子</div>';
+                    document.getElementById('page-info').textContent = `第 ${page} 页`;
+                    document.getElementById('prev-page').disabled = page <= 1;
+                    document.getElementById('next-page').disabled = true;
+                    return;
+                }
+
+                container.innerHTML = '';
+                for (const a of shown) {
+                    const aid = a.id || a.ID || a.article_id || 0;
+                    const card = document.createElement('div');
+                    card.className = 'post-card';
+                    card.style.cursor = 'pointer';
+                    card.addEventListener('click', () => {
+                        try { sessionStorage.setItem('lastListHash', location.hash || `/section/${sectionId}/page/${page}`); } catch (e) {}
+                        location.href = `/articleDetail.html?id=${aid}`;
+                    });
+
+                    const authorId = a.author || a.Author;
+                    const header = document.createElement('div');
+                    header.className = 'post-header';
+                    resolveUserName(authorId).then((resolved) => {
+                        header.innerHTML = `<div class="avatar">${escapeHtml((resolved || 'U')[0])}</div><div class="user-name">${escapeHtml(resolved)}</div>`;
+                    });
+                    card.appendChild(header);
+
+                    const t = document.createElement('div');
+                    t.className = 'post-title';
+                    t.textContent = a.title || a.Title || '(无标题)';
+                    card.appendChild(t);
+
+                    const sr = document.createElement('div');
+                    sr.className = 'post-summary-row';
+                    const summary = document.createElement('div');
+                    summary.className = 'post-summary';
+                    summary.textContent = (a.summary || a.Summary || a.desc || a.content || '').slice(0, 60);
+                    sr.appendChild(summary);
+
+                    const thumbWrap = document.createElement('div');
+                    thumbWrap.className = 'post-thumb';
+                    sr.appendChild(thumbWrap);
+                    card.appendChild(sr);
+
+                    (async () => {
+                        try {
+                            const infoUrl = a.url || a.PictureUrl || a.picture;
+                            if (!infoUrl) return;
+                            const img = document.createElement('img');
+                            img.src = `/api/article/articlePictures/${aid}/${encodeURIComponent(infoUrl)}`;
+                            img.alt = 'thumb';
+                            img.className = 'thumb-multi';
+                            thumbWrap.appendChild(img);
+                        } catch (_) {}
+                    })();
+
+                    const meta = document.createElement('div');
+                    meta.className = 'post-meta-row';
+                    const left = document.createElement('div');
+                    left.className = 'meta-left';
+                    const sectName = sections.find(x => x.id === (a.section || a.Section))?.name || ('专区 ' + (a.section || a.Section || 1));
+                    left.innerHTML = `<span class="meta-section">${escapeHtml(sectName)}</span><span class="meta-time">${escapeHtml(String(a.time || a.Time || ''))}</span>`;
+                    const right = document.createElement('div');
+                    right.className = 'meta-right';
+                    right.innerHTML = `<span>👍 ${a.like_num || a.LikeNum || 0}</span><span style="margin-left:12px">💬 ${a.comment_num || a.CommentNum || 0}</span>`;
+                    meta.appendChild(left);
+                    meta.appendChild(right);
+                    card.appendChild(meta);
+
+                    container.appendChild(card);
+                }
+
+                document.getElementById('page-info').textContent = `第 ${page} 页`;
+                const prevBtn = document.getElementById('prev-page');
+                const nextBtn = document.getElementById('next-page');
+                prevBtn.disabled = page <= 1;
+                nextBtn.disabled = sectionId === 0 || shown.length < PAGE_SIZE;
+                prevBtn.onclick = () => {
+                    if (prevBtn.disabled) return;
+                    location.hash = sectionId === 0 ? '/hot' : `/section/${sectionId}/page/${page - 1}`;
+                };
+                nextBtn.onclick = () => {
+                    if (nextBtn.disabled) return;
+                    if (sectionId === 0) return;
+                    location.hash = `/section/${sectionId}/page/${page + 1}`;
+                };
+            } catch (err) {
+                document.getElementById('articles').innerHTML = `<div style="padding:12px;color:#d9534f">${escapeHtml(err?.message || err)}</div>`;
+            }
+        }
+
+        function onRouteChange() {
+            const p = parseHash();
+            if (p.route === 'detail' && p.id) {
+                renderSections(null);
+                document.getElementById('pager').style.display = 'none';
+                return;
+            }
+            try { sessionStorage.setItem('lastListHash', location.hash || `/section/${p.section || 1}/page/${p.page || 1}`); } catch (e) {}
+            document.getElementById('pager').style.display = '';
+            const section = p.section || 1;
+            const page = p.page || 1;
+            renderSections(section);
+            loadArticles(section, page);
+        }
+
+        window.addEventListener('hashchange', onRouteChange);
+        if (!location.hash) location.hash = '/section/1/page/1';
+        else onRouteChange();
+    })();
+</script>
+</body>
+</html>

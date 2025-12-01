@@ -1,0 +1,51 @@
+type (
+	RegisterReq {
+		UserName string `json:"user_name"`
+		Password string `json:"password"`
+	}
+	LoginReq {
+		UserName string `json:"user_name"`
+		Password string `json:"password"`
+	}
+	LoginRsp {
+		Token string `json:"token"`
+	}
+	UserInfoReq {
+		UID uint64 `path:"uid"`
+	}
+	UserInfoRsp {
+		UserName string `json:"user_name"`
+		UserID   uint64 `json:"user_id"`
+	}
+)
+
+@server (
+	prefix: /api/user
+)
+service User {
+	@handler register
+	post /register (RegisterReq)
+
+	@handler login
+	post /login (LoginReq) returns (LoginRsp)
+
+	@handler userInfo
+	get /userInfo/:uid (UserInfoReq) returns (UserInfoRsp)
+}
+
+type (
+	SelfInfoRsp {
+		UserName string `json:"user_name"`
+		UserID   uint64 `json:"user_id"`
+	}
+)
+
+@server (
+	prefix: /api/user
+	jwt:    Auth
+)
+service User {
+	@handler selfInfo
+	get /selfInfo returns (SelfInfoRsp)
+}
+

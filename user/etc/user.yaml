@@ -1,0 +1,10 @@
+Name: User
+Host: 0.0.0.0
+Port: 8888
+
+Auth:
+  AccessSecret: aaaaaaaaaaaaaaa
+  AccessExpire: 3600
+
+Mysql:
+  DataSource: root:861214959@tcp(127.0.0.1:3306)/FunGo?charset=utf8mb4&parseTime=True&loc=Local

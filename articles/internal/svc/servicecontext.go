@@ -32,6 +32,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		fmt.Println("连接到数据库成功")
 	}
 	_ = db.AutoMigrate(model.Article{})
+	_ = db.AutoMigrate(model.Comment{})
 
 	// 初始化 redis
 	cli := redis.NewClient(&redis.Options{
@@ -57,6 +58,9 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	lookNumAggregator := NewLookNumAggregator(svc, "article-look-nums", 10*time.Second)
 	lookNumAggregator.Start()
 
+	likeAggregator := NewLikeAggregator(svc, 10*time.Second)
+	likeAggregator.Start()
+
 	return svc
 }
 
@@ -69,7 +73,7 @@ func initialize(cli *redis.Client, db *gorm.DB) {
 	for _, sec := range sections {
 		secKey := "section-" + strconv.Itoa(sec) + "-list"
 		var arts []model.Article
-		if err := db.Select("id").Where("section = ?", sec).Find(&arts).Error; err != nil {
+		if err := db.Where("section = ?", sec).Find(&arts).Error; err != nil {
 			fmt.Println("加载 section", sec, "文章失败:", err)
 			continue
 		}
@@ -81,7 +85,14 @@ func initialize(cli *redis.Client, db *gorm.DB) {
 		}
 		cli.ZAdd(ctx, secKey, z...)
 		cli.ZAdd(ctx, "section-1-list", z...)
+		for i, _ := range arts {
+			score := arts[i].LikeNum*2 + arts[i].LookNum + arts[i].CommentNum*5
+			z[i].Score = float64(score)
+			z[i].Member = arts[i].ID
+		}
+		cli.ZAdd(ctx, "hot-article-list", z...)
 	}
+	fmt.Println("初始化redis成功")
 }
 
 type LookNumAggregator struct {
@@ -129,12 +140,12 @@ func (a *LookNumAggregator) Stop() {
 
 // Lua 脚本：原子地获取哈希所有字段并删除该哈希
 var hgetallAndDel = `
-local res = redis.call('HGETALL', KEYS[1])
-if next(res) == nil then
+	local res = redis.call('HGETALL', KEYS[1])
+	if next(res) == nil then
+		return res
+	end
+	redis.call('DEL', KEYS[1])
 	return res
-end
-redis.call('DEL', KEYS[1])
-return res
 `
 
 // aggregateOnce 执行一次聚合：从 Redis 读取并清空增量，然后写入 MySQL（批量 CASE WHEN）
@@ -184,21 +195,111 @@ func (a *LookNumAggregator) aggregateOnce(ctx context.Context) error {
 	}
 
 	for i, v := range deltas {
-		if err = db.Model(&model.Article{}).
-			Where("id = ?", i).
+		if err = db.Model(&model.Article{}).Where("id = ?", i).
 			UpdateColumn("look_num", gorm.Expr("look_num + ?", v)).Error; err != nil {
 			fmt.Println("db increment look_num error:", err)
-		} else {
-			restore := make(map[string]interface{}, len(deltas))
-			for id, delta := range deltas {
-				restore[strconv.FormatUint(id, 10)] = strconv.FormatInt(delta, 10)
-			}
-			if err2 := r.HSet(ctx, a.key, restore).Err(); err2 != nil {
+			if err2 := r.HSet(ctx, a.key, i, v).Err(); err2 != nil {
 				// 如果连回写也失败，记录错误并返回事务错误（上层可报警）
 				fmt.Println("looknum restore to redis failed:", err2)
 			}
 			return err
 		}
 	}
+	return nil
+}
+
+// LikeAggregator TODO 聚合点赞数和点赞的bitmap
+type LikeAggregator struct {
+	svcCtx   *ServiceContext
+	interval time.Duration
+	stop     chan struct{}
+}
+
+func NewLikeAggregator(svcCtx *ServiceContext, interval time.Duration) *LikeAggregator {
+	return &LikeAggregator{
+		svcCtx:   svcCtx,
+		interval: interval,
+		stop:     make(chan struct{}),
+	}
+}
+
+func (l *LikeAggregator) Start() {
+	ticker := time.NewTicker(l.interval)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				if err := l.aggregateOnce(context.Background()); err != nil {
+					fmt.Println("looknum aggregate error:", err)
+				}
+			case <-l.stop:
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+}
+
+func (l *LikeAggregator) Stop() {
+	close(l.stop)
+}
+
+func (l *LikeAggregator) aggregateOnce(ctx context.Context) error {
+	// 将点赞表保存到数据库中
+	list, err := l.svcCtx.RedisClient.SMembers(ctx, "likebitmap-save-list").Result()
+	l.svcCtx.RedisClient.Del(ctx, "likebitmap-save-list")
+	if err != nil {
+		return err
+	}
+	for _, v := range list {
+		s, err := l.svcCtx.RedisClient.Get(ctx, "likebitmap-"+v).Result()
+		if err != nil {
+			fmt.Println("获取点赞bitmap失败,err = ", err)
+			continue
+		}
+		if err := l.svcCtx.Db.Model(&model.Article{}).Where("id = ?", v).UpdateColumn("likes_bitmap", s).Error; err != nil {
+			fmt.Println("保存点赞bitmap失败,err = ", err)
+			continue
+		}
+	}
+
+	// 保存点赞数到数据库中
+	raw, err := l.svcCtx.RedisClient.Eval(ctx, hgetallAndDel, []string{"like-save-set"}).Result()
+	arr, ok := raw.([]interface{})
+	if !ok || len(arr) == 0 {
+		return nil
+	}
+	deltas := make(map[uint64]int64, len(arr)/2)
+	for i := 0; i+1 < len(arr); i += 2 {
+		fb, _ := arr[i].(string)
+		vb, _ := arr[i+1].(string)
+		if fb == "" || vb == "" {
+			continue
+		}
+		id, err := strconv.ParseUint(fb, 10, 64)
+		if err != nil {
+			continue
+		}
+		delta, err := strconv.ParseInt(vb, 10, 64)
+		if err != nil {
+			continue
+		}
+		if delta == 0 {
+			continue
+		}
+		deltas[id] += delta
+	}
+
+	if len(deltas) == 0 {
+		return nil
+	}
+
+	for i, v := range deltas {
+		if err = l.svcCtx.Db.Model(&model.Article{}).Where("id = ?", i).
+			UpdateColumn("like_num", gorm.Expr("like_num + ?", v)).Error; err != nil {
+			fmt.Println("db increment look_num error:", err)
+		}
+	}
+
 	return nil
 }

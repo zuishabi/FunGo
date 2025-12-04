@@ -22,8 +22,9 @@ type ArticleInfo struct {
 	Summary    string `json:"summary"`
 	CommentNum int    `json:"comment_num"`
 	LookNum    int    `json:"look_num"`
-	LikeNum    int    `json:like_num`
+	LikeNum    int    `json:"like_num"`
 	PictureUrl string `json:"url"`
+	IfLike     bool   `json:"if_like"`
 }
 
 type ArticleListReq struct {
@@ -36,10 +37,12 @@ type ArticleListRsp struct {
 }
 
 type CommentInfo struct {
-	ID      uint64 `json:"id"`
-	UID     uint64 `json:"uid"`
-	Content string `json:"content"`
-	Time    string `json:"time"`
+	ID        uint64 `json:"id"`
+	UID       uint64 `json:"uid"`
+	CreatedAt string `json:"created_at"`
+	Content   string `json:"content"`
+	Parent    uint64 `json:"parent"`
+	PParent   uint64 `json:"p_parent"`
 }
 
 type CommentsReq struct {
@@ -47,6 +50,7 @@ type CommentsReq struct {
 }
 
 type CommentsRsp struct {
+	Comments []CommentInfo `json:"comments"`
 }
 
 type HotArticleListRsp struct {
@@ -54,7 +58,7 @@ type HotArticleListRsp struct {
 }
 
 type LikeReq struct {
-	ID uint64 `path:"id"`
+	ID uint64 `json:"id"`
 }
 
 type PictureReq struct {
@@ -63,13 +67,15 @@ type PictureReq struct {
 }
 
 type SendCommentsReq struct {
-	ID      uint64 `json:"id"`
-	Content string `json:"content"`
+	ArticleID uint64 `json:"article_id"`
+	Content   string `json:"content"`
+	Parent    uint64 `json:"parent"`
+	PParent   uint64 `json:"p_parent"`
 }
 
 type UserArticleListReq struct {
 	UID  uint64 `path:"uid"`
-	Page int    `path:"page"'`
+	Page int    `path:"page"`
 }
 
 type UserArticleListRsp struct {

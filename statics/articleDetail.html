@@ -48,6 +48,8 @@
         .article-card {
             width:100%;
         }
+        #comments-section { width: 100%; padding: 0 16px; box-sizing: border-box; }
+        #comments-section .article-card { width: 100%; }
     </style>
 </head>
 <body>
@@ -66,12 +68,52 @@
         <h1 class="article-title" id="article-title"></h1>
         <div class="article-meta" id="article-meta"></div>
         <div class="article-content" id="article-content"></div>
+        <div style="margin-top:12px; display:flex; gap:12px; align-items:center;">
+            <button id="like-btn" class="back-btn" style="background:#fff; color:#2b7cff; border:1px solid #2b7cff; padding:6px 12px;">👍 点赞</button>
+            <span id="like-count" style="color:#6b7280;">0</span>
+        </div>
     </article>
+    <section id="comments-section">
+        <div class="article-card" style="padding:16px;">
+            <h2 style="margin:0 0 12px; font-size:1.1rem;">评论</h2>
+            <div id="comments-list" style="display:flex; flex-direction:column; gap:12px; margin-bottom:12px;">
+                <!-- 评论项由脚本填充 -->
+            </div>
+
+            <form id="comment-form" style="display:flex; flex-direction:column; gap:8px;">
+                <textarea id="comment-input" rows="4" placeholder="写下你的评论..." style="resize:vertical; padding:8px; font-size:14px;"></textarea>
+                <div style="display:flex; gap:8px; justify-content:flex-end;">
+                    <button type="submit" class="back-btn" style="background:#2b7cff; color:#fff; border:none; padding:8px 14px;">提交评论</button>
+                </div>
+            </form>
+        </div>
+    </section>
 </main>
 
 <script src="/common.js"></script>
 <script>
+    const userCache = new Map();
+    async function fetchUserName(uid) {
+        if (!uid) return '匿名';
+        if (userCache.has(uid)) return userCache.get(uid);
+        try {
+            let rsp = await apiFetch(`/api/user/userInfo/${encodeURIComponent(uid)}`);
+            if (rsp && typeof rsp === 'object' && rsp.code !== undefined && rsp.data !== undefined) rsp = rsp.data;
+            const name = (rsp && (rsp.user_name || rsp.username || rsp.name || rsp.UserName || rsp.User_name)) || String(uid);
+            userCache.set(uid, name);
+            return name;
+        } catch (_) {
+            const fallback = String(uid);
+            userCache.set(uid, fallback);
+            return fallback;
+        }
+    }
     (async function () {
+        let index = 0;
+        let dragging = false;
+        let startX = 0;
+        let startTranslate = 0;
+        let resizeTid = 0;
         await loadHeader('#header-container');
 
         const backBtn = document.getElementById('back-btn');
@@ -92,143 +134,302 @@
         const metaEl = document.getElementById('article-meta');
         const contentEl = document.getElementById('article-content');
 
+        const likeBtn = document.getElementById('like-btn');
+        const likeCountEl = document.getElementById('like-count');
+        const commentsListEl = document.getElementById('comments-list');
+        const commentForm = document.getElementById('comment-form');
+        const commentInput = document.getElementById('comment-input');
+
         let _detailObjectUrls = [];
         window.addEventListener('beforeunload', () => _detailObjectUrls.forEach(URL.revokeObjectURL));
 
-        try {
-            let detail = await apiFetch(`/api/article/articleDetail/${articleId}`);
-            if (detail && typeof detail === 'object' && detail.code !== undefined && detail.data !== undefined) detail = detail.data;
-            if (!detail) throw new Error('未找到帖子');
+        async function loadDetail() {
+            try {
+                let detail = await apiFetch(`/api/article/articleDetail/${articleId}`);
+                if (detail && typeof detail === 'object' && detail.code !== undefined && detail.data !== undefined) detail = detail.data;
+                if (!detail) throw new Error('未找到帖子');
 
-            titleEl.textContent = detail.title || detail.Title || '(无标题)';
-            metaEl.innerHTML = [
-                `作者：${escapeHtml(String(detail.author || detail.Author || '匿名'))}`,
-                `时间：${escapeHtml(String(detail.time || detail.Time || detail.created_at || '未知'))}`,
-                detail.section ? `专区：${escapeHtml(String(detail.section))}` : '',
-                typeof detail.look_num !== 'undefined' ? `浏览：${detail.look_num}` : '',
-                typeof detail.like_num !== 'undefined' ? `点赞：${detail.like_num}` : ''
-            ].filter(Boolean).join(' · ');
-            contentEl.innerHTML = escapeHtml(detail.content || detail.Content || '').replace(/\n/g, '<br/>');
+                titleEl.textContent = detail.title || detail.Title || '(无标题)';
+                metaEl.innerHTML = [
+                    `作者：${escapeHtml(String(detail.author || detail.Author || '匿名'))}`,
+                    `时间：${escapeHtml(String(detail.time || detail.Time || detail.created_at || '未知'))}`,
+                    detail.section ? `专区：${escapeHtml(String(detail.section))}` : '',
+                    typeof detail.look_num !== 'undefined' ? `浏览：${detail.look_num}` : '',
+                    typeof detail.like_num !== 'undefined' ? `点赞：${detail.like_num}` : ''
+                ].filter(Boolean).join(' · ');
+                contentEl.innerHTML = escapeHtml(detail.content || detail.Content || '').replace(/\n/g, '<br/>');
 
-            const pics = Array.isArray(detail.pictures) ? detail.pictures :
-                (Array.isArray(detail.Pictures) ? detail.Pictures : []);
-            const fallback = detail.PictureUrl || detail.url || detail.Picture || detail.picture;
-            const sources = pics.length ? pics : (fallback ? [fallback] : []);
+                // 初始化点赞按钮状态与数量
+                likeCountEl.textContent = (typeof detail.like_num !== 'undefined') ? String(detail.like_num) : '0';
+                likeBtn.dataset.liked = detail.if_like ? '1' : '0';
+                updateLikeButton();
 
-            if (!sources.length) {
-                galleryContainer.style.display = 'none';
-            } else {
-                galleryContainer.style.display = '';
-                for (let i = 0; i < sources.length; i++) {
-                    const key = sources[i];
-                    try {
-                        const resp = /^https?:\/\//i.test(key) ? await fetch(key) :
-                            await fetch(`/api/article/articlePictures/${articleId}/${encodeURIComponent(key)}`);
-                        if (!resp?.ok) continue;
-                        const blob = await resp.blob();
-                        const url = URL.createObjectURL(blob);
-                        _detailObjectUrls.push(url);
+                // 图片逻辑（保持原有逻辑）
+                const pics = Array.isArray(detail.pictures) ? detail.pictures :
+                    (Array.isArray(detail.Pictures) ? detail.Pictures : []);
+                const fallback = detail.PictureUrl || detail.url || detail.Picture || detail.picture;
+                const sources = pics.length ? pics : (fallback ? [fallback] : []);
 
-                        const item = document.createElement('div');
-                        item.className = 'carousel-item';
-                        const img = document.createElement('img');
-                        img.src = url;
-                        img.alt = `图片${i + 1}`;
-                        item.appendChild(img);
-                        track.appendChild(item);
+                // 清理旧
+                track.innerHTML = '';
+                indicators.innerHTML = '';
+                _detailObjectUrls.forEach(URL.revokeObjectURL);
+                _detailObjectUrls = [];
 
-                        const dot = document.createElement('div');
-                        dot.className = 'carousel-indicator';
-                        dot.addEventListener('click', () => goto(i));
-                        indicators.appendChild(dot);
-                    } catch (_) {}
+                if (!sources.length) {
+                    galleryContainer.style.display = 'none';
+                } else {
+                    galleryContainer.style.display = '';
+                    for (let i = 0; i < sources.length; i++) {
+                        const key = sources[i];
+                        try {
+                            const resp = /^https?:\/\//i.test(key) ? await fetch(key) :
+                                await fetch(`/api/article/articlePictures/${articleId}/${encodeURIComponent(key)}`);
+                            if (!resp?.ok) continue;
+                            const blob = await resp.blob();
+                            const url = URL.createObjectURL(blob);
+                            _detailObjectUrls.push(url);
+
+                            const item = document.createElement('div');
+                            item.className = 'carousel-item';
+                            const img = document.createElement('img');
+                            img.src = url;
+                            img.alt = `图片${i + 1}`;
+                            item.appendChild(img);
+                            track.appendChild(item);
+
+                            const dot = document.createElement('div');
+                            dot.className = 'carousel-indicator';
+                            dot.addEventListener('click', () => goto(i));
+                            indicators.appendChild(dot);
+                        } catch (_) {}
+                    }
+                    if (track.children.length === 0) galleryContainer.style.display = 'none';
                 }
-                if (track.children.length === 0) galleryContainer.style.display = 'none';
-            }
 
-            let index = 0;
-            let dragging = false;
-            let startX = 0;
-            let startTranslate = 0;
-            let resizeTid = 0;
-
-            function getFrameWidth() {
-                const width = carousel.getBoundingClientRect().width;
-                return width > 0 ? width : 1;
-            }
-
-            function syncIndicators() {
-                Array.from(indicators.children).forEach((dot, i) => {
-                    dot.classList.toggle('active', i === index);
-                });
-            }
-
-            function sizeSlides() {
-                const frameW = getFrameWidth();
-                Array.from(track.children).forEach((item) => {
-                    item.style.width = frameW + 'px';
-                });
-                track.style.width = (frameW * track.children.length) + 'px';
-                track.style.transform = `translateX(${ -index * frameW }px)`;
-                syncIndicators();
-            }
-
-            function goto(newIndex, animate = true) {
-                const max = track.children.length - 1;
-                index = Math.max(0, Math.min(max, newIndex));
-                const frameW = getFrameWidth();
-                track.style.transition = animate ? 'transform 320ms ease' : 'none';
-                track.style.transform = `translateX(${ -index * frameW }px)`;
-                syncIndicators();
-            }
-
-            function pointerDown(e) {
-                if (track.children.length <= 1) return;
-                dragging = true;
-                startX = e.clientX;
-                startTranslate = -index * getFrameWidth();
-                track.style.transition = 'none';
-                try { carousel.setPointerCapture(e.pointerId); } catch (_) {}
-            }
-
-            function pointerMove(e) {
-                if (!dragging) return;
-                const dx = e.clientX - startX;
-                track.style.transform = `translateX(${startTranslate + dx}px)`;
-            }
-
-            function pointerUp(e) {
-                if (!dragging) return;
-                dragging = false;
-                try { carousel.releasePointerCapture(e.pointerId); } catch (_) {}
-                const dx = e.clientX - startX;
-                const threshold = getFrameWidth() * 0.18;
-                if (dx > threshold && index > 0) index--;
-                else if (dx < -threshold && index < track.children.length - 1) index++;
-                goto(index);
-            }
-
-            carousel.addEventListener('pointerdown', pointerDown);
-            carousel.addEventListener('pointermove', pointerMove);
-            carousel.addEventListener('pointerup', pointerUp);
-            carousel.addEventListener('pointercancel', pointerUp);
-            carousel.addEventListener('pointerleave', (e) => { if (dragging) pointerUp(e); });
-
-            window.addEventListener('resize', () => {
-                clearTimeout(resizeTid);
-                resizeTid = setTimeout(() => {
+                // 重新计算轮播尺寸并显示
+                if (track.children.length) {
                     sizeSlides();
-                    goto(index, false);
-                }, 120);
-            });
-
-            if (track.children.length) sizeSlides();
-        } catch (err) {
-            titleEl.textContent = err?.message || '加载失败';
-            metaEl.textContent = '';
-            contentEl.textContent = '';
-            galleryContainer.style.display = 'none';
+                    goto(0, false);
+                }
+            } catch (err) {
+                titleEl.textContent = err?.message || '加载失败';
+                metaEl.textContent = '';
+                contentEl.textContent = '';
+                galleryContainer.style.display = 'none';
+            }
         }
+
+        function updateLikeButton() {
+            const liked = likeBtn.dataset.liked === '1';
+            likeBtn.textContent = liked ? '✅ 已赞' : '👍 点赞';
+            likeBtn.style.opacity = liked ? '0.7' : '1';
+        }
+
+        async function toggleLike() {
+            likeBtn.disabled = true;
+            try {
+                const payloadId = { id: Number(articleId) };
+                const headers = { 'Content-Type': 'application/json' };
+
+                // 发送 helper，返回原始响应
+                const send = async (bodyObj) => {
+                    return await apiFetch('/api/article/like', {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify(bodyObj)
+                    });
+                };
+
+                let res = await send(payloadId);
+
+                // 统一解包 { code, data } 结构
+                let data = res;
+                if (data && typeof data === 'object' && data.code !== undefined && data.data !== undefined) data = data.data;
+
+                // 如果服务器返回含 "field id not set" 或类似提示，尝试用 article_id 重发
+                const errText = String((res && (res.message || res.error)) || '');
+                if (/field\s+id\s+not\s+set/i.test(errText) || /id\s+not\s+set/i.test(errText)) {
+                    res = await send({ article_id: Number(articleId) });
+                    data = res;
+                    if (data && typeof data === 'object' && data.code !== undefined && data.data !== undefined) data = data.data;
+                }
+
+                // 成功后切换本地状态与计数（即使后端返回不规范，也改善 UX）
+                const likedNow = likeBtn.dataset.liked !== '1';
+                likeBtn.dataset.liked = likedNow ? '1' : '0';
+                const current = parseInt(likeCountEl.textContent || '0', 10);
+                likeCountEl.textContent = String(Math.max(0, current + (likedNow ? 1 : -1)));
+                updateLikeButton();
+            } catch (err) {
+                alert('点赞失败：' + (err?.message || '网络错误'));
+            } finally {
+                likeBtn.disabled = false;
+            }
+        }
+
+        async function loadComments() {
+            commentsListEl.innerHTML = '<div style="color:#9ca3af;">加载中...</div>';
+            try {
+                let rsp = await apiFetch(`/api/article/comments/${articleId}`);
+                if (rsp && typeof rsp === 'object' && rsp.code !== undefined && rsp.data !== undefined) rsp = rsp.data;
+                const comments = (rsp && Array.isArray(rsp.comments)) ? rsp.comments : (rsp && Array.isArray(rsp.Comments) ? rsp.Comments : []);
+                await renderComments(comments);
+            } catch (err) {
+                commentsListEl.innerHTML = `<div style="color:#ef4444;">加载评论失败</div>`;
+            }
+        }
+
+        async function renderComments(comments) {
+            if (!comments || comments.length === 0) {
+                commentsListEl.innerHTML = '<div style="color:#6b7280;">还没有评论，快来第一个评论吧。</div>';
+                return;
+            }
+            commentsListEl.innerHTML = '';
+            // 并行获取所有需要的用户名以减少等待
+            const uidList = comments.map(c => (c.uid || c.UID || null));
+            const uniqueUids = Array.from(new Set(uidList.filter(Boolean)));
+            await Promise.all(uniqueUids.map(uid => fetchUserName(uid)));
+
+            for (const c of comments) {
+                const item = document.createElement('div');
+                item.style.borderTop = '1px solid #eef2f7';
+                item.style.paddingTop = '8px';
+
+                const header = document.createElement('div');
+                header.style.color = '#6b7280';
+                header.style.fontSize = '13px';
+                header.style.marginBottom = '6px';
+
+                const uid = c.uid || c.UID || null;
+                let author = '匿名';
+                if (uid) author = await fetchUserName(uid);
+                else if (c.author) author = String(c.author);
+
+                const time = escapeHtml(String(c.created_at || c.CreatedAt || c.time || ''));
+                header.textContent = `${author} · ${time}`;
+
+                const content = document.createElement('div');
+                content.style.whiteSpace = 'pre-wrap';
+                content.style.color = '#2f3137';
+                content.textContent = String(c.content || c.Content || '');
+
+                item.appendChild(header);
+                item.appendChild(content);
+                commentsListEl.appendChild(item);
+            }
+        }
+
+        commentForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const text = (commentInput.value || '').trim();
+            if (!text) return alert('请输入评论内容');
+            const payload = {
+                article_id: articleId,
+                content: text,
+                parent: 0,
+                p_parent: 0
+            };
+            const btn = commentForm.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            try {
+                const headers = { 'Content-Type': 'application/json' };
+                let res = await apiFetch('/api/article/sendComments', {
+                    method: 'POST',
+                    body: JSON.stringify(payload),
+                    headers: headers,
+                });
+                if (res && typeof res === 'object' && res.code !== undefined && res.data !== undefined) {
+                    if (res.code !== 0) throw new Error(res.message || '提交失败');
+                }
+                commentInput.value = '';
+                await loadComments();
+            } catch (err) {
+                alert('提交失败：' + (err?.message || '网络错误'));
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        likeBtn.addEventListener('click', toggleLike);
+
+        // 初始化：加载详情与评论
+        await loadDetail();
+        await loadComments();
+
+        // --- 以下是原轮播相关函数（保持原有实现） ---
+
+        function getFrameWidth() {
+            const width = carousel.getBoundingClientRect().width;
+            return width > 0 ? width : 1;
+        }
+
+        function syncIndicators() {
+            Array.from(indicators.children).forEach((dot, i) => {
+                dot.classList.toggle('active', i === index);
+            });
+        }
+
+        function sizeSlides() {
+            const frameW = getFrameWidth();
+            Array.from(track.children).forEach((item) => {
+                item.style.width = frameW + 'px';
+            });
+            track.style.width = (frameW * track.children.length) + 'px';
+            track.style.transform = `translateX(${ -index * frameW }px)`;
+            syncIndicators();
+        }
+
+        function goto(newIndex, animate = true) {
+            const max = track.children.length - 1;
+            index = Math.max(0, Math.min(max, newIndex));
+            const frameW = getFrameWidth();
+            track.style.transition = animate ? 'transform 320ms ease' : 'none';
+            track.style.transform = `translateX(${ -index * frameW }px)`;
+            syncIndicators();
+        }
+
+        function pointerDown(e) {
+            if (track.children.length <= 1) return;
+            dragging = true;
+            startX = e.clientX;
+            startTranslate = -index * getFrameWidth();
+            track.style.transition = 'none';
+            try { carousel.setPointerCapture(e.pointerId); } catch (_) {}
+        }
+
+        function pointerMove(e) {
+            if (!dragging) return;
+            const dx = e.clientX - startX;
+            track.style.transform = `translateX(${startTranslate + dx}px)`;
+        }
+
+        function pointerUp(e) {
+            if (!dragging) return;
+            dragging = false;
+            try { carousel.releasePointerCapture(e.pointerId); } catch (_) {}
+            const dx = e.clientX - startX;
+            const threshold = getFrameWidth() * 0.18;
+            if (dx > threshold && index > 0) index--;
+            else if (dx < -threshold && index < track.children.length - 1) index++;
+            goto(index);
+        }
+
+        carousel.addEventListener('pointerdown', pointerDown);
+        carousel.addEventListener('pointermove', pointerMove);
+        carousel.addEventListener('pointerup', pointerUp);
+        carousel.addEventListener('pointercancel', pointerUp);
+        carousel.addEventListener('pointerleave', (e) => { if (dragging) pointerUp(e); });
+
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTid);
+            resizeTid = setTimeout(() => {
+                sizeSlides();
+                goto(index, false);
+            }, 120);
+        });
+
+        if (track.children.length) sizeSlides();
 
         function escapeHtml(str) {
             return String(str || '').replace(/[&<>\"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));

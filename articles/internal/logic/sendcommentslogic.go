@@ -5,9 +5,10 @@ package logic
 
 import (
 	"context"
-
 	"fungo/articles/internal/svc"
 	"fungo/articles/internal/types"
+	"fungo/articles/model"
+	"strconv"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -27,7 +28,17 @@ func NewSendCommentsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Send
 }
 
 func (l *SendCommentsLogic) SendComments(req *types.SendCommentsReq) error {
-	// todo: add your logic here and delete this line
+	user, _ := l.ctx.Value("user_id").(uint64)
+	comment := model.Comment{
+		UID:       user,
+		ArticleID: req.ArticleID,
+		Parent:    req.Parent,
+		PParent:   req.PParent,
+		Content:   req.Content,
+	}
 
-	return nil
+	// 更新热度排行榜
+	l.svcCtx.RedisClient.ZIncrBy(context.Background(), "hot-article-list", 5, strconv.Itoa(int(req.ArticleID)))
+
+	return l.svcCtx.Db.Create(&comment).Error
 }

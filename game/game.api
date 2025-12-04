@@ -1,0 +1,11 @@
+type (
+
+)
+@server (
+    prefix: /api/game
+)
+
+service Game{
+    @handler GameList
+    get
+}

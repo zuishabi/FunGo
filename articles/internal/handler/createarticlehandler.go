@@ -99,13 +99,8 @@ func CreateArticleHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			response.Response(r, w, nil, errors.New("创建失败"))
 			return
 		}
-		uidNum, ok := uidVal.(json.Number)
+		uid, ok := uidVal.(uint64)
 		if !ok {
-			response.Response(r, w, nil, errors.New("创建失败"))
-			return
-		}
-		uid, err := uidNum.Int64()
-		if err != nil {
 			response.Response(r, w, nil, errors.New("创建失败"))
 			return
 		}
@@ -124,7 +119,7 @@ func CreateArticleHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		temp := model.Article{
 			Content: content,
 			Section: uint32(sec),
-			Author:  uint64(uid),
+			Author:  uid,
 			Title:   title,
 		}
 		if err := tx.Create(&temp).Error; err != nil {

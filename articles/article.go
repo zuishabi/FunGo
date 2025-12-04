@@ -6,11 +6,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"fungo/common/jwts"
-
 	"fungo/articles/internal/config"
 	"fungo/articles/internal/handler"
+	"fungo/articles/internal/middleware"
 	"fungo/articles/internal/svc"
+	"fungo/common/jwts"
 
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/rest"
@@ -26,6 +26,7 @@ func main() {
 	c.MaxBytes = 10485760
 
 	server := rest.MustNewServer(c.RestConf, rest.WithUnauthorizedCallback(jwts.JwtUnauthorizedResult))
+	server.Use(middleware.OptionalJWT(c.Auth.AccessSecret))
 	defer server.Stop()
 
 	ctx := svc.NewServiceContext(c)

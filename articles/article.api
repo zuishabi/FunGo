@@ -8,14 +8,17 @@ type (
 		Summary    string `json:"summary"`
 		CommentNum int    `json:"comment_num"`
 		LookNum    int    `json:"look_num"`
-		LikeNum    int    `json:like_num`
+		LikeNum    int    `json:"like_num"`
 		PictureUrl string `json:"url"`
+		IfLike     bool   `json:"if_like"`
 	}
 	CommentInfo {
-		ID      uint64 `json:"id"`
-		UID     uint64 `json:"uid"`
-		Content string `json:"content"`
-		Time    string `json:"time"`
+		ID        uint64 `json:"id"`
+		UID       uint64 `json:"uid"`
+		CreatedAt string `json:"created_at"`
+		Content   string `json:"content"`
+		Parent    uint64 `json:"parent"`
+		PParent   uint64 `json:"p_parent"`
 	}
 	ArticleListReq {
 		Section uint32 `path:"section"`
@@ -26,7 +29,7 @@ type (
 	}
 	UserArticleListReq {
 		UID  uint64 `path:"uid"`
-		Page int    `path:"page"'`
+		Page int    `path:"page"`
 	}
 	UserArticleListRsp {
 		Articles []ArticleInfo `json:"articles"`
@@ -45,13 +48,17 @@ type (
 	CommentsReq {
 		ID uint64 `path:"id"`
 	}
-	CommentsRsp  {}
+	CommentsRsp {
+		Comments []CommentInfo `json:"comments"`
+	}
 	SendCommentsReq {
-		ID      uint64 `json:"id"`
-		Content string `json:"content"`
+		ArticleID uint64 `json:"article_id"`
+		Content   string `json:"content"`
+		Parent    uint64 `json:"parent"`
+		PParent   uint64 `json:"p_parent"`
 	}
 	LikeReq {
-		ID uint64 `path:"id"`
+		ID uint64 `json:"id"`
 	}
 	PictureReq {
 		ID  uint64 `path:"id"`
@@ -69,14 +76,14 @@ service article {
 	@handler UserArticleList
 	get /userArticleList/:uid/:page (UserArticleListReq) returns (UserArticleListRsp)
 
-	@handler ArticleDetail
-	get /articleDetail/:id (ArticleDetailReq) returns (ArticleDetailRsp)
-
 	@handler Comments
 	get /comments/:id (CommentsReq) returns (CommentsRsp)
 
 	@handler GetPictures
 	get /articlePictures/:id/:md5 (PictureReq)
+
+	@handler ArticleDetail
+	get /articleDetail/:id (ArticleDetailReq) returns (ArticleDetailRsp)
 }
 
 @server (
@@ -93,3 +100,4 @@ service article {
 	@handler CreateArticle
 	post /createArticle
 }
+

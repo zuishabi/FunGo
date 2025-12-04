@@ -19,3 +19,13 @@ type Article struct {
 type Pictures struct {
 	Name []string `json:"name"`
 }
+
+type Comment struct {
+	ID        uint64 `gorm:"primaryKey"`
+	UID       uint64 `gorm:"Index"`
+	ArticleID uint64 `gorm:"Index"`
+	Parent    uint64
+	CreatedAt time.Time
+	PParent   uint64 // 在回复评论中回复
+	Content   string
+}

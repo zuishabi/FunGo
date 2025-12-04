@@ -41,33 +41,43 @@ func NewArticleListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Artic
 }
 
 func (l *ArticleListLogic) ArticleList(req *types.ArticleListReq) (resp *types.ArticleListRsp, err error) {
+	var ids []int64
 	if req.Section == 0 {
 		// 显示热门帖子（此处略）
-		return &types.ArticleListRsp{Articles: nil}, nil
-	}
-
-	pageSize := 10
-	if req.Page <= 0 {
-		req.Page = 1
-	}
-	start := (req.Page - 1) * pageSize
-	key := fmt.Sprintf("section-%d-list", req.Section)
-
-	values, err := l.svcCtx.RedisClient.ZRevRange(l.ctx, key, int64(start), int64(start+pageSize-1)).Result()
-	if err != nil {
-		return nil, err
-	}
-	if len(values) == 0 {
-		return &types.ArticleListRsp{Articles: nil}, nil
-	}
-
-	ids := make([]int64, 0, len(values))
-	for _, s := range values {
-		id, e := strconv.ParseInt(s, 10, 64)
-		if e != nil {
-			continue
+		res, err := l.svcCtx.RedisClient.ZRange(context.Background(), "hot-article-list", 0, 10).Result()
+		if err != nil {
+			return nil, err
 		}
-		ids = append(ids, id)
+		ids = make([]int64, len(res))
+		for i, v := range res {
+			//解析出文章id
+			articleID, _ := strconv.Atoi(v)
+			ids[i] = int64(articleID)
+		}
+	} else {
+		pageSize := 10
+		if req.Page <= 0 {
+			req.Page = 1
+		}
+		start := (req.Page - 1) * pageSize
+		key := fmt.Sprintf("section-%d-list", req.Section)
+
+		values, err := l.svcCtx.RedisClient.ZRevRange(l.ctx, key, int64(start), int64(start+pageSize-1)).Result()
+		if err != nil {
+			return nil, err
+		}
+		if len(values) == 0 {
+			return &types.ArticleListRsp{Articles: nil}, nil
+		}
+
+		ids = make([]int64, 0, len(values))
+		for _, s := range values {
+			id, e := strconv.ParseInt(s, 10, 64)
+			if e != nil {
+				continue
+			}
+			ids = append(ids, id)
+		}
 	}
 	if len(ids) == 0 {
 		return &types.ArticleListRsp{Articles: nil}, nil
@@ -105,6 +115,9 @@ func (l *ArticleListLogic) ArticleList(req *types.ArticleListReq) (resp *types.A
 			Summary:    truncateSummary(a.Content, 20),
 			Title:      a.Title,
 			PictureUrl: pic,
+			LookNum:    a.LookNum,
+			LikeNum:    a.LikeNum,
+			CommentNum: a.CommentNum,
 		}
 		rsp = append(rsp, info)
 	}

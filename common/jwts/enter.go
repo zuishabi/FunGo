@@ -34,7 +34,7 @@ func GenToken(user JwtPayLoad, accessSecret string, expires int64) (string, erro
 }
 
 // ParseToken 解析Token
-func ParseToken(tokenStr string, accessSecret string, expires int64) (*CustomClaims, error) {
+func ParseToken(tokenStr string, accessSecret string) (*CustomClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(accessSecret), nil
 	})

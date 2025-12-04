@@ -26,7 +26,5 @@ func NewCreateArticleLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Cre
 }
 
 func (l *CreateArticleLogic) CreateArticle() error {
-	// todo: add your logic here and delete this line
-
 	return nil
 }

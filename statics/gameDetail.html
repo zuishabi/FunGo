@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>游戏详情</title>
+    <link rel="stylesheet" href="/common.css" />
+    <style>
+        /* --- 布局调整：参考 articleDetail.html --- */
+        main {
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 0 16px;
+            display: flex; /* 使用 flex 布局 */
+            flex-direction: column; /* 垂直排列 */
+            gap: 20px; /* 子元素间距 */
+        }
+
+        /* 移除 .detail-container 的包裹样式 */
+
+        .header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0; /* 从 main 的 gap 获取间距 */
+            padding-bottom: 16px;
+            border-bottom: 1px solid #eee;
+        }
+        .header-bar h2 {
+            margin: 0;
+            font-size: 1.8em;
+        }
+        .meta-info {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 0; /* 从 main 的 gap 获取间距 */
+        }
+        .meta-info span {
+            margin-right: 16px;
+        }
+
+        /* 将卡片样式应用到每个 section */
+        .section {
+            background: #fff;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 0; /* 从 main 的 gap 获取间距 */
+        }
+        .section h3 {
+            margin-top: 0; /* 移除 section 内 h3 的上边距 */
+            margin-bottom: 12px;
+            font-size: 1.2em;
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 4px;
+            display: inline-block;
+        }
+        #description {
+            line-height: 1.6;
+            color: #444;
+        }
+        #links-list a {
+            display: inline-block;
+            margin-right: 12px;
+            margin-bottom: 8px;
+            text-decoration: none;
+            color: #007bff;
+        }
+        #links-list a:hover {
+            text-decoration: underline;
+        }
+        #actions-bar > button {
+            margin-right: 10px;
+        }
+        #loading, #error {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2em;
+            color: #666;
+        }
+        #error {
+            color: #d9534f;
+        }
+
+        /* --- 轮播图样式 --- */
+        #carousel-container {
+            position: relative;
+            max-width: 100%; /* 宽度自适应 section */
+            margin: auto;
+            overflow: hidden;
+            border-radius: 8px;
+            background-color: #f0f0f0;
+        }
+        #pictures-gallery {
+            display: flex;
+            transition: transform 0.5s ease-in-out;
+        }
+        .slide {
+            min-width: 100%;
+            box-sizing: border-box;
+        }
+        .slide img {
+            width: 100%;
+            display: block;
+            aspect-ratio: 16 / 9;
+            object-fit: contain;
+        }
+        .carousel-btn {
+            cursor: pointer;
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: rgba(0,0,0,0.4);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            font-size: 20px;
+            border-radius: 50%;
+            user-select: none;
+            line-height: 1;
+            transition: background-color 0.2s;
+        }
+        .carousel-btn:hover {
+            background-color: rgba(0,0,0,0.7);
+        }
+        #prev-slide { left: 10px; }
+        #next-slide { right: 10px; }
+    </style>
+</head>
+<body>
+<div id="header-container"></div>
+
+<main>
+    <div id="loading">加载中...</div>
+    <div id="error" style="display: none;"></div>
+
+    <!-- 移除外层 detail-container，将子元素直接放入 main -->
+    <div id="main-content" style="display: none; display: contents;"> <!-- 使用 display: contents 避免影响 flex 布局 -->
+        <div class="header-bar">
+            <h2 id="game-title"></h2>
+            <button id="back-btn" class="primary">返回</button>
+        </div>
+
+        <div class="meta-info">
+            <span id="author"></span>
+            <span id="updated-at"></span>
+            <span id="play-time" style="display: none;"></span>
+        </div>
+
+        <div class="section" id="pictures-section" style="display: none;">
+            <h3>游戏截图</h3>
+            <div id="carousel-container">
+                <div id="pictures-gallery"></div>
+                <button id="prev-slide" class="carousel-btn">&lt;</button>
+                <button id="next-slide" class="carousel-btn">&gt;</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>游戏简介</h3>
+            <p id="description"></p>
+        </div>
+
+        <div class="section" id="links-section" style="display: none;">
+            <h3>相关链接</h3>
+            <div id="links-list"></div>
+        </div>
+
+        <div class="section">
+            <h3>操作</h3>
+            <div id="actions-bar"></div>
+        </div>
+    </div>
+</main>
+
+<script src="/common.js"></script>
+<script>
+    (async function() {
+        await loadHeader('#header-container');
+
+        const loadingEl = document.getElementById('loading');
+        const errorEl = document.getElementById('error');
+        const mainContent = document.getElementById('main-content');
+
+        document.getElementById('back-btn').onclick = () => history.back();
+
+        function escapeHtml(s) {
+            return String(s || '').replace(/[&<>\"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
+        async function getUserName(userId) {
+            if (!userId) return '未知用户';
+            try {
+                const userInfo = await apiFetch(`/api/user/userInfo/${userId}`);
+                return userInfo.user_name || '未知用户';
+            } catch (err) {
+                return '未知用户';
+            }
+        }
+
+        async function loadGameDetail() {
+            const params = new URLSearchParams(window.location.search);
+            const gameId = params.get('id');
+
+            if (!gameId) {
+                loadingEl.style.display = 'none';
+                errorEl.textContent = '错误：未提供游戏ID。';
+                errorEl.style.display = 'block';
+                return;
+            }
+
+            try {
+                const data = await apiFetch(`/api/game/gameDetail/${gameId}`);
+                const info = data.info;
+                const pictures = data.pictures || [];
+                const links = data.links || {};
+
+                document.title = info.title;
+                document.getElementById('game-title').textContent = info.title;
+
+                const authorName = await getUserName(info.author);
+                document.getElementById('author').textContent = `作者: ${escapeHtml(authorName)}`;
+                document.getElementById('updated-at').textContent = `更新于: ${new Date(info.updated_at).toLocaleDateString()}`;
+
+                const playTimeEl = document.getElementById('play-time');
+                if (info.can_online_playing) {
+                    playTimeEl.textContent = `游玩次数: ${info.play_time || 0}`;
+                    playTimeEl.style.display = 'inline';
+                } else {
+                    playTimeEl.style.display = 'none';
+                }
+
+                const gallery = document.getElementById('pictures-gallery');
+                const picturesSection = document.getElementById('pictures-section');
+                if (pictures.length > 0) {
+                    gallery.innerHTML = '';
+                    pictures.forEach(pic => {
+                        const slide = document.createElement('div');
+                        slide.className = 'slide';
+                        const img = document.createElement('img');
+                        img.src = `/api/game/gamePicture/${info.id}/${encodeURIComponent(pic)}`;
+                        slide.appendChild(img);
+                        gallery.appendChild(slide);
+                    });
+                    picturesSection.style.display = 'block';
+
+                    let currentIndex = 0;
+                    const totalSlides = pictures.length;
+                    const prevBtn = document.getElementById('prev-slide');
+                    const nextBtn = document.getElementById('next-slide');
+
+                    function updateCarousel() {
+                        gallery.style.transform = `translateX(-${currentIndex * 100}%)`;
+                    }
+
+                    prevBtn.onclick = () => {
+                        currentIndex = (currentIndex - 1 + totalSlides) % totalSlides;
+                        updateCarousel();
+                    };
+                    nextBtn.onclick = () => {
+                        currentIndex = (currentIndex + 1) % totalSlides;
+                        updateCarousel();
+                    };
+
+                    if (totalSlides <= 1) {
+                        prevBtn.style.display = 'none';
+                        nextBtn.style.display = 'none';
+                    }
+                }
+
+                document.getElementById('description').textContent = data.description;
+
+                const linksList = document.getElementById('links-list');
+                const linksSection = document.getElementById('links-section');
+                if (Object.keys(links).length > 0) {
+                    linksList.innerHTML = '';
+                    for (const key in links) {
+                        const a = document.createElement('a');
+                        a.href = links[key];
+                        a.textContent = key;
+                        a.target = '_blank';
+                        linksList.appendChild(a);
+                    }
+                    linksSection.style.display = 'block';
+                }
+
+                const actionsBar = document.getElementById('actions-bar');
+                actionsBar.innerHTML = '';
+                if (info.can_online_playing) {
+                    const playBtn = document.createElement('button');
+                    playBtn.className = 'primary';
+                    playBtn.textContent = '在线游玩';
+                    playBtn.onclick = () => window.open(`/play.html?id=${info.id}`, '_blank');
+                    actionsBar.appendChild(playBtn);
+                }
+                if (info.can_download) {
+                    const downloadBtn = document.createElement('button');
+                    downloadBtn.className = 'secondary';
+                    downloadBtn.textContent = '下载游戏';
+                    downloadBtn.onclick = () => window.location.href = `/api/game/gameFile/${info.id}`;
+                    actionsBar.appendChild(downloadBtn);
+                }
+                if (actionsBar.innerHTML === '') {
+                    actionsBar.textContent = '暂无可用操作';
+                }
+
+                loadingEl.style.display = 'none';
+                mainContent.style.display = 'contents'; // 显示内容
+
+            } catch (err) {
+                loadingEl.style.display = 'none';
+                errorEl.textContent = `加载游戏详情失败: ${err?.message || err}`;
+                errorEl.style.display = 'block';
+            }
+        }
+
+        loadGameDetail();
+    })();
+</script>
+</body>
+</html>

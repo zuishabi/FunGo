@@ -6,24 +6,25 @@ package main
 import (
 	"flag"
 	"fmt"
-	"fungo/articles/internal/config"
-	"fungo/articles/internal/handler"
-	"fungo/articles/internal/svc"
 	"fungo/common/jwts"
 	"fungo/common/middleware"
+
+	"fungo/game/internal/config"
+	"fungo/game/internal/handler"
+	"fungo/game/internal/svc"
 
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/rest"
 )
 
-var configFile = flag.String("f", "etc/article.yaml", "the config file")
+var configFile = flag.String("f", "etc/game.yaml", "the config file")
 
 func main() {
 	flag.Parse()
 
 	var c config.Config
 	conf.MustLoad(*configFile, &c)
-	c.MaxBytes = 10485760
+	c.MaxBytes = 524288000
 
 	server := rest.MustNewServer(c.RestConf, rest.WithUnauthorizedCallback(jwts.JwtUnauthorizedResult))
 	server.Use(middleware.OptionalJWT(c.Auth.AccessSecret))

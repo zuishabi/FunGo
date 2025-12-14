@@ -114,14 +114,12 @@ func NewLookNumAggregator(svcCtx *ServiceContext, key string, interval time.Dura
 
 // Start 启动后台聚合器
 func (a *LookNumAggregator) Start() {
-	fmt.Println("开始聚合")
 	ticker := time.NewTicker(a.interval)
 	go func() {
 		defer a.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				fmt.Println("聚合数据")
 				if err := a.aggregateOnce(context.Background()); err != nil {
 					fmt.Println("looknum aggregate error:", err)
 				}
@@ -208,7 +206,7 @@ func (a *LookNumAggregator) aggregateOnce(ctx context.Context) error {
 	return nil
 }
 
-// LikeAggregator TODO 聚合点赞数和点赞的bitmap
+// LikeAggregator
 type LikeAggregator struct {
 	svcCtx   *ServiceContext
 	interval time.Duration

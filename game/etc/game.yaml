@@ -1,0 +1,14 @@
+Name: Game
+Host: 0.0.0.0
+Port: 8890
+
+Auth:
+  AccessSecret: aaaaaaaaaaaaaaa
+  AccessExpire: 3600
+
+Mysql:
+  DataSource: root:861214959@tcp(127.0.0.1:3306)/FunGo?charset=utf8mb4&parseTime=True&loc=Local
+
+Redis:
+  Addr: localhost:6379
+  Password: '861214959'

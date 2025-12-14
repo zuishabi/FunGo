@@ -1,11 +1,80 @@
 type (
-
+	GameListReq {
+		Page int `path:"page"`
+	}
+	GameInfo {
+		ID               uint64 `json:"id"`
+		Title            string `json:"title"`
+		Cover            string `json:"cover"`
+		Author           uint64 `json:"author"`
+		UpdatedAt        string `json:"updated_at"`
+		CanDownload      bool   `json:"can_download"`
+		CanOnlinePlaying bool   `json:"can_online_playing"`
+		PlayTime         int    `json:"play_time"`
+	}
+	GameDetailReq {
+		ID uint64 `path:"id"`
+	}
+	GameDetailRsp {
+		Info        GameInfo          `json:"info"`
+		Pictures    []string          `json:"pictures"`
+		Description string            `json:"description"`
+		Links       map[string]string `json:"links"`
+	}
+	GemeListRsp {
+		Games []GameInfo `json:"games"`
+	}
+	OnlineGameReq {
+		ID       uint64 `path:"id"`
+		FileName string `path:"file_name"`
+	}
+	PictureReq {
+		ID       uint64 `path:"id"`
+		FileName string `path:"file_name"`
+	}
+	GameFileReq {
+		ID uint64 `path:"id"`
+	}
 )
+
 @server (
-    prefix: /api/game
+	prefix: /api/game
+)
+service Game {
+	@handler GameList
+	get /gameList/:page (GameListReq) returns (GemeListRsp)
+
+	@handler OnlineGame
+	get /online/:id/:file_name (OnlineGameReq)
+
+	@handler GetPictures
+	get /gamePicture/:id/:file_name (PictureReq)
+
+	@handler DownloadGame
+	get /gameFile/:id (GameFileReq)
+
+	@handler GameDetail
+	get /gameDetail/:id (GameDetailReq) returns (GameDetailRsp)
+}
+
+type (
+	UploadGameReq {
+		Title            string            `json:"title"`
+		Cover            string            `json:"cover"`
+		CanDownload      bool              `json:"can_download"`
+		CanOnlinePlaying bool              `json:"can_online_playing"`
+		Description      string            `json:"description"`
+		Pictures         []string          `json:"pictures"`
+		Links            map[string]string `json:"links"`
+	}
 )
 
-service Game{
-    @handler GameList
-    get
+@server (
+	prefix: /api/game
+	jwt:    Auth
+)
+service Game {
+	@handler UploadGame
+	post /uploadGame (UploadGameReq)
 }
+

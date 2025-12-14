@@ -4,14 +4,15 @@
 package handler
 
 import (
-	"fungo/articles/internal/svc"
-	"fungo/articles/internal/types"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"fungo/game/internal/svc"
+	"fungo/game/internal/types"
 
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
@@ -29,14 +30,14 @@ func GetPicturesHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			http.Error(w, "invalid id", http.StatusBadRequest)
 			return
 		}
-		if req.MD5 == "" || strings.ContainsAny(req.MD5, "/\\") {
+		if req.FileName == "" || strings.ContainsAny(req.FileName, "/\\") {
 			http.Error(w, "invalid md5", http.StatusBadRequest)
 			return
 		}
 
 		// 构造本地文件路径：uploads/<id>/<md5>
 		baseDir := "uploads"
-		filePath := filepath.Join(baseDir, strconv.Itoa(int(req.ID)), req.MD5)
+		filePath := filepath.Join(baseDir, strconv.Itoa(int(req.ID)), req.FileName)
 
 		// 防护：把构造的路径清理并确保是在 uploads 目录下
 		cleanPath := filepath.Clean(filePath)
@@ -61,8 +62,7 @@ func GetPicturesHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		defer f.Close()
-
-		// 获取文件信息用于 Content-Length / Last-Modified
+		
 		stat, err := f.Stat()
 		if err != nil {
 			http.Error(w, "stat file error", http.StatusInternalServerError)

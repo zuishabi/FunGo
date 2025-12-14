@@ -23,5 +23,5 @@ go.work.sum
 
 # env file
 .env
-articles/upload/
 /articles/uploads
+/game/uploads

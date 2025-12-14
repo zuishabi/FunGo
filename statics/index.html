@@ -47,7 +47,7 @@
 
     (async function () {
         await loadHeader('#header-container');
-        const sections = [{id:0,name:'热门'},{id:1,name:'全部'},{id:2,name:'技术'},{id:3,name:'生活'}];
+        const sections = [{id:0,name:'热门'},{id:1,name:'全部'},{id:2,name:'杂谈天地'},{id:3,name:'技术分享'}];
 
         function escapeHtml(s) {
             return String(s || '').replace(/[&<>\"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

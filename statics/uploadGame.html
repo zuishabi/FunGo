@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8" />
+    <title>上传游戏</title>
+    <link rel="stylesheet" href="/common.css" />
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f5f7; }
+        main {
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 0 16px;
+            display: flex;
+            justify-content: center;
+        }
+        #frm-container {
+            background: #fff;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            width: 100%;
+        }
+        .form-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 16px;
+        }
+        .form-header h2 {
+            margin: 0;
+        }
+        .row { margin-bottom: 16px; }
+        label { display: block; font-weight: bold; margin-bottom: 6px; color: #333; }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 8px 10px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            transition: border-color 0.2s;
+        }
+        input[type="text"]:focus, textarea:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+        .links-row { display:flex; gap:8px; margin-bottom:6px; }
+        .links-row input { flex:1; }
+        .links-row button { flex:0 0 auto; }
+        .preview { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+        .preview img { max-height: 120px; border: 1px solid #ddd; padding: 2px; border-radius: 4px; }
+        .small { font-size: 0.9em; color: #666; font-weight: normal; }
+        #resp { white-space:pre-wrap; margin-top: 12px; background:#f7f7f7; padding:8px; border-radius:4px; font-family: monospace; }
+        #error-message { color: #d9534f; font-weight: bold; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+<div id="header-container"></div>
+
+<main>
+    <div id="frm-container">
+        <div class="form-header">
+            <h2>上传游戏</h2>
+            <button id="back-btn" type="button" class="secondary">返回列表</button>
+        </div>
+
+        <form id="frm" enctype="multipart/form-data" onsubmit="return false;">
+            <div class="row">
+                <label for="title">标题</label>
+                <input id="title" name="title" type="text" required />
+            </div>
+
+            <div class="row">
+                <label for="description">简介</label>
+                <textarea id="description" name="description" rows="4" required></textarea>
+            </div>
+
+            <div class="row">
+                <label>链接（键值对）</label>
+                <div id="links-container"></div>
+                <button id="add-link" type="button" class="secondary">+ 添加链接</button>
+            </div>
+
+            <div class="row">
+                <label for="cover">封面图片（单张）</label>
+                <input id="cover" name="cover" type="file" accept="image/*" required />
+                <div id="cover-preview" class="preview"></div>
+            </div>
+
+            <div class="row">
+                <label for="pictures">简介图片（多张）</label>
+                <input id="pictures" name="pictures" type="file" accept="image/*" multiple required />
+                <div id="pictures-preview" class="preview"></div>
+            </div>
+
+            <div class="row">
+                <label for="download_file">下载游戏文件（单个，可选）</label>
+                <input id="download_file" name="download_file" type="file" />
+            </div>
+
+            <div class="row">
+                <label for="online_files">在线游玩文件（多个，可选）</label>
+                <input id="online_files" name="online_files" type="file" multiple />
+            </div>
+
+            <div id="error-message"></div>
+
+            <div class="row">
+                <button id="submit" type="button" class="primary">上传</button>
+                <span id="status" class="small"></span>
+            </div>
+
+            <div id="resp"></div>
+        </form>
+    </div>
+</main>
+
+<script src="/common.js"></script>
+<script>
+    (async function() {
+        // 加载并初始化 header
+        await loadHeader('#header-container');
+
+        // 返回按钮事件
+        document.getElementById('back-btn').onclick = () => {
+            history.back();
+        };
+
+        const linksContainer = document.getElementById('links-container');
+        const addLinkBtn = document.getElementById('add-link');
+
+        function makeLinkRow(key = '', value = '') {
+            const div = document.createElement('div');
+            div.className = 'links-row';
+            const k = document.createElement('input');
+            k.type = 'text';
+            k.placeholder = '键 (例如 github)';
+            k.value = key;
+            const v = document.createElement('input');
+            v.type = 'text';
+            v.placeholder = '值 (例如 https://github.com/...)';
+            v.value = value;
+            const del = document.createElement('button');
+            del.type = 'button';
+            del.className = 'danger';
+            del.textContent = '删除';
+            del.onclick = () => div.remove();
+            div.appendChild(k);
+            div.appendChild(v);
+            div.appendChild(del);
+            return div;
+        }
+
+        addLinkBtn.onclick = () => linksContainer.appendChild(makeLinkRow());
+        linksContainer.appendChild(makeLinkRow());
+
+        const coverInput = document.getElementById('cover');
+        const coverPreview = document.getElementById('cover-preview');
+        const picturesInput = document.getElementById('pictures');
+        const picturesPreview = document.getElementById('pictures-preview');
+
+        function previewFiles(input, previewEl) {
+            previewEl.innerHTML = '';
+            const files = input.files;
+            if (!files) return;
+            Array.from(files).forEach(f => {
+                if (!f.type.startsWith('image/')) return;
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(f);
+                img.onload = () => URL.revokeObjectURL(img.src);
+                previewEl.appendChild(img);
+            });
+        }
+
+        coverInput.addEventListener('change', () => previewFiles(coverInput, coverPreview));
+        picturesInput.addEventListener('change', () => previewFiles(picturesInput, picturesPreview));
+
+        const submitBtn = document.getElementById('submit');
+        const status = document.getElementById('status');
+        const resp = document.getElementById('resp');
+        const errorMessage = document.getElementById('error-message');
+
+        submitBtn.onclick = async () => {
+            status.textContent = '';
+            resp.textContent = '';
+            errorMessage.textContent = '';
+
+            if (!document.getElementById('title').value.trim()) {
+                errorMessage.textContent = '错误：请填写游戏标题。';
+                return;
+            }
+            if (!document.getElementById('description').value.trim()) {
+                errorMessage.textContent = '错误：请填写游戏简介。';
+                return;
+            }
+            if (coverInput.files.length === 0) {
+                errorMessage.textContent = '错误：请上传封面图片。';
+                return;
+            }
+            if (picturesInput.files.length === 0) {
+                errorMessage.textContent = '错误：请上传至少一张简介图片。';
+                return;
+            }
+
+            status.textContent = ' 上传中...';
+            submitBtn.disabled = true;
+
+            const rows = Array.from(linksContainer.querySelectorAll('.links-row'));
+            const linksMap = {};
+            rows.forEach(row => {
+                const inputs = row.querySelectorAll('input');
+                const k = inputs[0].value.trim();
+                const v = inputs[1].value.trim();
+                if (k) linksMap[k] = v;
+            });
+
+            const fd = new FormData();
+            fd.append('title', document.getElementById('title').value);
+            fd.append('description', document.getElementById('description').value);
+            fd.append('links', JSON.stringify(linksMap));
+            if (coverInput.files[0]) fd.append('cover', coverInput.files[0]);
+            if (document.getElementById('download_file').files[0]) fd.append('download_file', document.getElementById('download_file').files[0]);
+            Array.from(picturesInput.files).forEach(f => fd.append('pictures', f));
+            Array.from(document.getElementById('online_files').files).forEach(f => fd.append('online_files', f));
+
+            try {
+                await apiFetch('/api/game/uploadGame', {
+                    method: 'POST',
+                    body: fd
+                });
+                alert('游戏上传成功！');
+                location.href = '/gameList.html'; // 上传成功后跳转到游戏列表页
+            } catch (err) {
+                errorMessage.textContent = '请求失败：' + (err?.message || err);
+                status.textContent = '';
+                submitBtn.disabled = false;
+            }
+        };
+    })();
+</script>
+</body>
+</html>

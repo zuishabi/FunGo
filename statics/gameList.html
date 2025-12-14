@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>游戏中心</title>
+    <link rel="stylesheet" href="/common.css" />
+    <style>
+        /* 覆盖 common.css 中的 flex 布局，让 main 内部元素垂直排列 */
+        main {
+            display: block;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 16px;
+        }
+        .content-wrapper {
+            width: 100%; /* 确保内容区占满宽度 */
+        }
+        .header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        #games-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 20px;
+        }
+        .game-card {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+        }
+        .game-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .game-cover {
+            width: 100%;
+            padding-top: 56.25%; /* 16:9 aspect ratio */
+            background-color: #f0f0f0;
+            background-size: cover;
+            background-position: center;
+        }
+        .game-info {
+            padding: 12px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .game-title {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        .game-meta {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 12px;
+        }
+        .game-actions {
+            margin-top: auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9em;
+            color: #555;
+        }
+        .play-online-btn {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .play-online-btn:hover {
+            background-color: #218838;
+        }
+        .pager {
+            margin-top: 24px;
+            text-align: center; /* 让分页器内容居中 */
+        }
+    </style>
+</head>
+<body>
+<div id="header-container"></div>
+
+<main>
+    <div class="content-wrapper">
+        <div class="header-bar">
+            <h2>游戏中心</h2>
+            <button id="upload-game-btn" class="primary">上传游戏</button>
+        </div>
+        <div id="games-container"></div>
+        <div class="pager" id="pager">
+            <button id="prev-page" class="primary">上一页</button>
+            <div id="page-info" style="display: inline-block; margin: 0 12px;">第 1 页</div>
+            <button id="next-page" class="primary">下一页</button>
+        </div>
+    </div>
+</main>
+
+<script src="/common.js"></script>
+<script>
+    (async function() {
+        await loadHeader('#header-container');
+
+        const gamesContainer = document.getElementById('games-container');
+        const pageInfo = document.getElementById('page-info');
+        const prevBtn = document.getElementById('prev-page');
+        const nextBtn = document.getElementById('next-page');
+        const uploadBtn = document.getElementById('upload-game-btn');
+
+        uploadBtn.onclick = () => location.href = '/uploadGame.html';
+
+        const userCache = new Map(); // 用户名缓存
+
+        function escapeHtml(s) {
+            return String(s || '').replace(/[&<>\"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
+        function parsePageFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const page = parseInt(params.get('page'), 10);
+            return isNaN(page) || page < 1 ? 1 : page;
+        }
+
+        // 新增：根据用户ID获取用户名的函数
+        async function getUserName(userId) {
+            if (!userId) return '未知用户';
+            if (userCache.has(userId)) {
+                return userCache.get(userId);
+            }
+            try {
+                const userInfo = await apiFetch(`/api/user/userInfo/${userId}`);
+                const userName = userInfo.user_name || '未知用户';
+                userCache.set(userId, userName);
+                return userName;
+            } catch (err) {
+                console.error(`获取用户 ${userId} 信息失败:`, err);
+                userCache.set(userId, '未知用户'); // 缓存失败结果避免重试
+                return '未知用户';
+            }
+        }
+
+        async function loadGames(page) {
+            gamesContainer.innerHTML = '加载中...';
+            prevBtn.disabled = true;
+            nextBtn.disabled = true;
+
+            try {
+                const resp = await apiFetch(`/api/game/gameList/${page}`);
+                const games = resp?.games || [];
+
+                if (games.length === 0 && page === 1) {
+                    gamesContainer.innerHTML = '<div style="color:#666; padding: 20px 0;">暂无游戏</div>';
+                    nextBtn.disabled = true;
+                } else {
+                    gamesContainer.innerHTML = '';
+                    // 使用 Promise.all 并行处理所有卡片的创建
+                    const cardPromises = games.map(async game => {
+                        const card = document.createElement('div');
+                        card.className = 'game-card';
+                        card.onclick = () => {
+                            location.href = `/gameDetail.html?id=${game.id}`;
+                        };
+
+                        const coverDiv = document.createElement('div');
+                        coverDiv.className = 'game-cover';
+                        if (game.cover) {
+                            coverDiv.style.backgroundImage = `url('/api/game/gamePicture/${game.id}/${encodeURIComponent(game.cover)}')`;
+                        }
+
+                        const infoDiv = document.createElement('div');
+                        infoDiv.className = 'game-info';
+
+                        // --- 修改作者名称的获取方式 ---
+                        const authorName = await getUserName(game.author);
+                        const title = `<div class="game-title">${escapeHtml(game.title)}</div>`;
+                        const meta = `<div class="game-meta">作者: ${escapeHtml(authorName)} | 更新于: ${escapeHtml(new Date(game.updated_at).toLocaleDateString())}</div>`;
+                        // --- 修改结束 ---
+
+                        const actions = document.createElement('div');
+                        actions.className = 'game-actions';
+
+                        const hasDownload = game.can_download
+                        let leftContent = '';
+                        let rightContent = '';
+
+                        if (game.can_online_playing) {
+                            leftContent = `<span>${game.play_time || 0} 次游玩</span>`;
+                            rightContent = `<button class="play-online-btn">在线游玩</button>`;
+                            if (hasDownload) {
+                                leftContent += `<span style="margin-left: 8px; color: #888;">支持下载</span>`;
+                            }
+                        } else if (hasDownload) {
+                            leftContent = '<span>支持下载</span>';
+                        }
+
+                        actions.innerHTML = `<div>${leftContent}</div><div>${rightContent}</div>`;
+
+                        if (game.can_online_playing) {
+                            const playBtn = actions.querySelector('.play-online-btn');
+                            if(playBtn) {
+                                playBtn.onclick = (e) => {
+                                    e.stopPropagation();
+                                    window.open(`/play.html?id=${game.id}`, '_blank');
+                                };
+                            }
+                        }
+
+                        infoDiv.innerHTML = title + meta;
+                        infoDiv.appendChild(actions);
+
+                        card.appendChild(coverDiv);
+                        card.appendChild(infoDiv);
+                        return card;
+                    });
+
+                    const cardElements = await Promise.all(cardPromises);
+                    cardElements.forEach(card => gamesContainer.appendChild(card));
+
+                    nextBtn.disabled = games.length < 10;
+                }
+
+                pageInfo.textContent = `第 ${page} 页`;
+                prevBtn.disabled = page <= 1;
+
+            } catch (err) {
+                gamesContainer.innerHTML = `<div style="color:#d9534f; padding: 20px 0;">加载失败: ${escapeHtml(err?.message || err)}</div>`;
+            }
+        }
+
+        function navigateToPage(page) {
+            const url = new URL(window.location);
+            url.searchParams.set('page', page);
+            window.history.pushState({page}, `第 ${page} 页`, url);
+            loadGames(page);
+        }
+
+        prevBtn.onclick = () => {
+            const currentPage = parsePageFromUrl();
+            if (currentPage > 1) {
+                navigateToPage(currentPage - 1);
+            }
+        };
+
+        nextBtn.onclick = () => {
+            const currentPage = parsePageFromUrl();
+            navigateToPage(currentPage + 1);
+        };
+
+        window.onpopstate = (event) => {
+            const page = event.state?.page || parsePageFromUrl();
+            loadGames(page);
+        };
+
+        const initialPage = parsePageFromUrl();
+        loadGames(initialPage);
+
+    })();
+</script>
+</body>
+</html>

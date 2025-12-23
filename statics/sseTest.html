@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <title>SSE 弹幕示例</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        #events { border: 1px solid #ccc; padding: 12px; height: 320px; overflow: auto; }
+        #toolbar { margin-top: 12px; display: grid; grid-template-columns: 120px 160px 1fr 120px; gap: 8px; align-items: center; }
+        input { padding: 6px; }
+        button { padding: 8px 10px; }
+        .row { margin: 0; padding: 4px 0; border-bottom: 1px dashed #eee; }
+        .meta { color: #666; font-size: 12px; }
+    </style>
+</head>
+<body>
+<h1>Server-Sent Events 弹幕演示</h1>
+
+<div class="meta">
+    \- SSE: `GET /api/live/BulletChatMessage/:room_id` \| 发送: `POST /api/live/SendBulletChat`
+</div>
+
+<div id="events"></div>
+
+<div id="toolbar">
+    <label for="roomId">RoomID</label>
+    <input id="roomId" type="number" value="1" min="1" />
+
+    <label for="userName">用户名</label>
+    <input id="userName" type="text" value="testUser" />
+
+    <input id="content" type="text" placeholder="输入要发送的消息..." />
+    <button id="sendBtn">发送</button>
+</div>
+
+<script>
+    const eventList = document.getElementById("events");
+    const roomIdEl = document.getElementById("roomId");
+    const userNameEl = document.getElementById("userName");
+    const contentEl = document.getElementById("content");
+    const sendBtn = document.getElementById("sendBtn");
+
+    let source = null;
+
+    function appendLine(text) {
+        const p = document.createElement("p");
+        p.className = "row";
+        p.textContent = text;
+        eventList.appendChild(p);
+        eventList.scrollTop = eventList.scrollHeight;
+    }
+
+    function connectSSE(roomId) {
+        if (source) {
+            source.close();
+            source = null;
+        }
+
+        const url = `/api/live/BulletChatMessage/${encodeURIComponent(roomId)}`;
+        appendLine(`[SSE] 连接: ${url}`);
+
+        source = new EventSource(url);
+
+        source.onmessage = function (event) {
+            // 服务端若发送的是 JSON 字符串，这里尝试解析；否则按纯文本展示
+            try {
+                const obj = JSON.parse(event.data);
+                const userName = obj.user_name ?? obj.UserName ?? "unknown";
+                const content = obj.content ?? obj.Content ?? String(event.data);
+                appendLine(`${userName}: ${content}`);
+            } catch (e) {
+                appendLine(String(event.data));
+            }
+        };
+
+        source.onerror = function () {
+            // EventSource 会自动重连，这里仅提示
+            appendLine("[SSE] 发生错误/重连中…");
+        };
+    }
+
+    async function sendMessage() {
+        const roomId = Number(roomIdEl.value);
+        const userName = userNameEl.value.trim();
+        const content = contentEl.value.trim();
+
+        if (!roomId || roomId <= 0) {
+            appendLine("[Send] RoomID 无效");
+            return;
+        }
+        if (!userName) {
+            appendLine("[Send] 用户名不能为空");
+            return;
+        }
+        if (!content) {
+            appendLine("[Send] 内容不能为空");
+            return;
+        }
+
+        const payload = {
+            user_name: userName,
+            content: content,
+            room_id: roomId
+        };
+
+        try {
+            const resp = await fetch("/api/live/SendBulletChat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            if (!resp.ok) {
+                const txt = await resp.text().catch(() => "");
+                appendLine(`[Send] 失败: HTTP ${resp.status} ${txt}`);
+                return;
+            }
+
+            contentEl.value = "";
+            appendLine("[Send] 已发送");
+        } catch (err) {
+            appendLine(`[Send] 异常: ${String(err)}`);
+        }
+    }
+
+    // 初始先建立 SSE
+    connectSSE(Number(roomIdEl.value) || 1);
+
+    // 切换 RoomID 时重连 SSE
+    roomIdEl.addEventListener("change", () => {
+        const roomId = Number(roomIdEl.value) || 1;
+        connectSSE(roomId);
+    });
+
+    // 点击发送
+    sendBtn.addEventListener("click", sendMessage);
+
+    // 回车发送
+    contentEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") sendMessage();
+    });
+</script>
+</body>
+</html>

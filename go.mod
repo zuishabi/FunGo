@@ -4,6 +4,8 @@ go 1.25
 
 require (
 	github.com/golang-jwt/jwt/v4 v4.5.2
+	github.com/gorilla/websocket v1.5.3
+	github.com/redis/go-redis/v9 v9.17.1
 	github.com/zeromicro/go-zero v1.9.3
 	golang.org/x/crypto v0.44.0
 	gorm.io/driver/mysql v1.6.0
@@ -36,7 +38,6 @@ require (
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.62.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
-	github.com/redis/go-redis/v9 v9.17.1 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	go.opentelemetry.io/otel v1.24.0 // indirect
 	go.opentelemetry.io/otel/exporters/jaeger v1.17.0 // indirect

@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>直播间</title>
+    <!-- 引入公共样式 -->
+    <link rel="stylesheet" href="/common.css">
+    <!-- 引入 flv.js -->
+    <script src="https://cdn.jsdelivr.net/npm/flv.js/dist/flv.min.js"></script>
+    <style>
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        .video-wrapper {
+            width: 100%;
+            max-width: 960px;
+            background-color: #000;
+            margin-bottom: 20px;
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        #video-element {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .stream-overlay {
+            position: absolute;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 16px;
+            background: rgba(0, 0, 0, 0.62);
+            color: #fff;
+            font-size: 16px;
+            line-height: 1.6;
+            z-index: 2;
+        }
+        .stream-overlay.show { display: flex; }
+
+        .room-details {
+            width: 100%;
+            max-width: 960px;
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .page-actions {
+            width: 100%;
+            max-width: 1000px;
+            margin: 0 auto 12px auto;
+            padding: 0 16px;
+        }
+        .btn-back {
+            padding: 8px 12px;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .btn-back:hover { background: #f9fafb; }
+
+        /* 弹幕面板 */
+        .danmu-panel {
+            width: 100%;
+            max-width: 960px;
+            margin-top: 12px;
+            background: #fff;
+            border-radius: 8px;
+            padding: 12px;
+            box-sizing: border-box;
+        }
+        .danmu-meta {
+            color: #666;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+        .danmu-list {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 10px;
+            height: 220px;
+            overflow: auto;
+            background: #fafafa;
+        }
+        .danmu-row {
+            margin: 0;
+            padding: 6px 0;
+            border-bottom: 1px dashed #eaeaea;
+            font-size: 14px;
+            color: #111;
+            word-break: break-word;
+        }
+        .danmu-row:last-child { border-bottom: 0; }
+        .danmu-toolbar {
+            margin-top: 10px;
+            display: grid;
+            grid-template-columns: 120px 1fr 120px;
+            gap: 8px;
+            align-items: center;
+        }
+        .danmu-input {
+            padding: 8px 10px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            outline: none;
+        }
+        .danmu-btn {
+            padding: 8px 12px;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .danmu-btn:hover { background: #f9fafb; }
+    </style>
+</head>
+<body>
+
+<div id="header-container"></div>
+
+<div class="main-container">
+    <div class="page-actions">
+        <button type="button" id="btn-back" class="btn-back">返回</button>
+    </div>
+
+    <div class="video-wrapper">
+        <div id="stream-overlay" class="stream-overlay">主播正在调试设备中...</div>
+        <video id="video-element" controls autoplay muted></video>
+    </div>
+
+    <div id="room-details" class="room-details">
+        <h2 id="room-title">加载中...</h2>
+        <p id="room-description"></p>
+    </div>
+
+    <!-- 新增：弹幕区域 -->
+    <div class="danmu-panel">
+        <div class="danmu-meta">弹幕：`GET /api/live/BulletChatMessage/:room_id` \| 发送：`POST /api/live/SendBulletChat`</div>
+        <div id="danmu-list" class="danmu-list"></div>
+        <div class="danmu-toolbar">
+            <input id="danmu-user" class="danmu-input" type="text" value="testUser" placeholder="用户名" />
+            <input id="danmu-content" class="danmu-input" type="text" placeholder="输入弹幕内容..." />
+            <button id="danmu-send" class="danmu-btn" type="button">发送</button>
+        </div>
+    </div>
+</div>
+
+<script src="/common.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', async function() {
+        if (typeof loadHeader === 'function') {
+            await loadHeader('#header-container');
+        }
+
+        const backBtn = document.getElementById('btn-back');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                if (window.history.length > 1) window.history.back();
+                else window.location.href = '/';
+            });
+        }
+
+        const params = new URLSearchParams(window.location.search);
+        const roomId = params.get('roomId');
+
+        const titleElem = document.getElementById('room-title');
+        const descriptionElem = document.getElementById('room-description');
+        const overlayElem = document.getElementById('stream-overlay');
+
+        const danmuListEl = document.getElementById('danmu-list');
+        const danmuUserEl = document.getElementById('danmu-user');
+        const danmuContentEl = document.getElementById('danmu-content');
+        const danmuSendBtn = document.getElementById('danmu-send');
+
+        let sseSource = null;
+
+        function showDebugOverlay() {
+            if (overlayElem) overlayElem.classList.add('show');
+        }
+        function hideDebugOverlay() {
+            if (overlayElem) overlayElem.classList.remove('show');
+        }
+
+        function appendDanmuLine(text) {
+            if (!danmuListEl) return;
+            const p = document.createElement('p');
+            p.className = 'danmu-row';
+            p.textContent = text;
+            danmuListEl.appendChild(p);
+            danmuListEl.scrollTop = danmuListEl.scrollHeight;
+        }
+
+        function connectDanmuSSE(rid) {
+            if (!rid) return;
+
+            if (sseSource) {
+                try { sseSource.close(); } catch (e) {}
+                sseSource = null;
+            }
+
+            const url = `/api/live/BulletChatMessage/${encodeURIComponent(rid)}`;
+            appendDanmuLine(`[SSE] 连接：${url}`);
+
+            sseSource = new EventSource(url);
+
+            sseSource.onmessage = function(event) {
+                try {
+                    const obj = JSON.parse(event.data);
+                    const userName = obj.user_name ?? obj.UserName ?? 'unknown';
+                    const content = obj.content ?? obj.Content ?? String(event.data);
+                    appendDanmuLine(`${userName}: ${content}`);
+                } catch (e) {
+                    appendDanmuLine(String(event.data));
+                }
+            };
+
+            sseSource.onerror = function() {
+                appendDanmuLine('[SSE] 异常/重连中...');
+            };
+        }
+
+        async function sendDanmu(rid) {
+            const userName = (danmuUserEl?.value || '').trim();
+            const content = (danmuContentEl?.value || '').trim();
+
+            if (!rid) {
+                appendDanmuLine('[Send] RoomID 无效');
+                return;
+            }
+            if (!userName) {
+                appendDanmuLine('[Send] 用户名不能为空');
+                return;
+            }
+            if (!content) {
+                appendDanmuLine('[Send] 内容不能为空');
+                return;
+            }
+
+            const payload = {
+                user_name: userName,
+                content: content,
+                room_id: Number(rid)
+            };
+
+            try {
+                const resp = await fetch('/api/live/SendBulletChat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!resp.ok) {
+                    const txt = await resp.text().catch(() => '');
+                    appendDanmuLine(`[Send] 失败：HTTP ${resp.status} ${txt}`);
+                    return;
+                }
+
+                if (danmuContentEl) danmuContentEl.value = '';
+                appendDanmuLine('[Send] 已发送');
+            } catch (err) {
+                appendDanmuLine(`[Send] 异常：${String(err)}`);
+            }
+        }
+
+        window.addEventListener('beforeunload', function() {
+            if (sseSource) {
+                try { sseSource.close(); } catch (e) {}
+                sseSource = null;
+            }
+        });
+
+        if (!roomId) {
+            titleElem.textContent = '错误';
+            descriptionElem.textContent = '未找到房间ID。';
+            showDebugOverlay();
+            appendDanmuLine('[SSE] 未找到 roomId，无法建立连接');
+            return;
+        }
+
+        async function fetchRoomDetailsAndPlay(id) {
+            try {
+                const response = await fetch(`/api/live/liveRoom/${id}`);
+                if (!response.ok) throw new Error(`获取房间信息失败: ${response.status}`);
+
+                const body = await response.json();
+                if (body?.code !== 0) {
+                    throw new Error(body?.msg || `业务错误 code=${body?.code}`);
+                }
+
+                const data = body?.data || {};
+                const streamKey = data.key ?? data.Key;
+
+                titleElem.textContent = data.title || '无标题直播间';
+                descriptionElem.textContent = data.description || '主播很懒，什么都没留下。';
+                document.title = data.title || '直播间';
+
+                if (!streamKey) throw new Error('后端未返回 key（streamKey）');
+
+                initPlayer(streamKey);
+            } catch (error) {
+                console.error(error);
+                titleElem.textContent = '加载失败';
+                descriptionElem.textContent = error?.message || '无法加载直播间信息，请刷新页面。';
+                showDebugOverlay();
+            }
+        }
+
+        function initPlayer(streamKey) {
+            if (!flvjs.isSupported()) {
+                titleElem.textContent = '浏览器不支持 FLV 播放';
+                showDebugOverlay();
+                return;
+            }
+
+            const videoElement = document.getElementById('video-element');
+            const streamUrl = `/live/${encodeURIComponent(streamKey)}.flv`;
+
+            const flvPlayer = flvjs.createPlayer({
+                type: 'flv',
+                isLive: true,
+                url: streamUrl
+            });
+
+            flvPlayer.attachMediaElement(videoElement);
+            hideDebugOverlay();
+
+            flvPlayer.on(flvjs.Events.ERROR, (errType, errDetail, errInfo) => {
+                console.error('FLV ERROR:', errType, errDetail, errInfo);
+                showDebugOverlay();
+            });
+
+            videoElement.addEventListener('playing', hideDebugOverlay, { once: false });
+
+            flvPlayer.load();
+            flvPlayer.play().then(() => {
+                hideDebugOverlay();
+            }).catch(error => {
+                console.log('自动播放失败，需要用户交互后才能播放。', error);
+                showDebugOverlay();
+            });
+        }
+
+        // 进入房间后：建立弹幕 SSE + 拉流
+        connectDanmuSSE(roomId);
+        if (danmuSendBtn) {
+            danmuSendBtn.addEventListener('click', () => sendDanmu(roomId));
+        }
+        if (danmuContentEl) {
+            danmuContentEl.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') sendDanmu(roomId);
+            });
+        }
+
+        fetchRoomDetailsAndPlay(roomId);
+    });
+</script>
+
+</body>
+</html>

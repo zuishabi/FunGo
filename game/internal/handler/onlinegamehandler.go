@@ -4,7 +4,6 @@
 package handler
 
 import (
-	"fmt"
 	"fungo/common/response"
 	"fungo/game/internal/logic"
 	"net/http"
@@ -29,9 +28,13 @@ func OnlineGameHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		// 拼接到本地 uploads 目录
 		if req.FileName == "play" {
 			req.FileName = "index.html"
+			// 执行游玩在线游戏的逻辑
+			if err := logic.NewOnlineGameLogic(r.Context(), svcCtx).OnlineGame(&req); err != nil {
+				response.Response(r, w, nil, err)
+			}
 		}
+
 		fullPath := filepath.Join("uploads/"+strconv.Itoa(int(req.ID))+"/", req.FileName)
-		fmt.Println(req.FileName)
 
 		// 额外安全检查：确保最终文件在 uploads 目录下
 		absBase, err := filepath.Abs("uploads")
@@ -47,11 +50,6 @@ func OnlineGameHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		if !strings.HasPrefix(absFile, absBase) {
 			http.NotFound(w, r)
 			return
-		}
-
-		// 执行游玩在线游戏的逻辑
-		if err := logic.NewOnlineGameLogic(r.Context(), svcCtx).OnlineGame(&req); err != nil {
-			response.Response(r, w, nil, err)
 		}
 
 		// 最终返回文件（http.ServeFile 会自动设置 Content-Type）

@@ -1,0 +1,266 @@
+<!-- 文件：`statics/liveList.html` -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>直播广场</title>
+    <link rel="stylesheet" href="/common.css">
+    <style>
+        main {
+            display: block;
+            max-width: 1280px;
+            margin: 16px auto;
+            padding: 0 12px;
+        }
+        .header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .start-live-btn {
+            background-color: #2563eb;
+            color: #fff;
+            text-decoration: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        /* 关键：对 #room-grid 生效（你页面里用的是 id） */
+        #room-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr)); /* 桌面端固定 4 列 */
+            gap: 12px;
+            align-items: stretch;
+        }
+        @media (max-width: 1100px) {
+            #room-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+        @media (max-width: 820px) {
+            #room-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 520px) {
+            #room-grid { grid-template-columns: 1fr; }
+        }
+
+        .room-card {
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+            overflow: hidden;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            min-width: 0; /* 防止内容撑破网格 */
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .room-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+        }
+
+        /* 关键：封面固定高度，避免 16:9 把卡片撑高 */
+        .cover-image {
+            width: 100%;
+            height: 200px;                 /* 想更紧凑可改 100 */
+            background-color: #f3f4f6;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: contain;       /* 关键：完整显示，不裁剪 */
+        }
+
+        .room-info {
+            padding: 10px 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-height: 96px;
+            min-width: 0;
+        }
+
+        .room-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #111827;
+            line-height: 1.2;
+            margin: 0;
+
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .room-meta {
+            font-size: 12px;
+            color: #6b7280;
+            line-height: 1.25;
+        }
+
+        /* 关键：描述限制 2 行，避免撑高 */
+        .room-meta.desc {
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+            overflow: hidden;
+        }
+
+        .pager {
+            margin-top: 16px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div id="header-container"></div>
+
+<main>
+    <div class="header-bar">
+        <h2>直播广场</h2>
+        <a href="/myLive" class="start-live-btn">我要开播</a>
+    </div>
+    <div id="room-grid">加载中...</div>
+    <div class="pager" id="pager">
+        <button id="prev-page" class="primary">上一页</button>
+        <div id="page-info" style="display: inline-block; margin: 0 12px;"></div>
+        <button id="next-page" class="primary">下一页</button>
+    </div>
+</main>
+
+<script src="/common.js"></script>
+<script>
+    (async function() {
+        await loadHeader('#header-container');
+
+        const roomGrid = document.getElementById('room-grid');
+        const pageInfo = document.getElementById('page-info');
+        const prevBtn = document.getElementById('prev-page');
+        const nextBtn = document.getElementById('next-page');
+
+        const userCache = new Map();
+
+        function escapeHtml(s) {
+            return String(s || '').replace(/[&<>\"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
+        function parsePageFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const page = parseInt(params.get('page'), 10);
+            return isNaN(page) || page < 1 ? 1 : page;
+        }
+
+        async function getUserName(userId) {
+            if (!userId) return '未知主播';
+            if (userCache.has(userId)) return userCache.get(userId);
+            try {
+                const userInfo = await apiFetch(`/api/user/userInfo/${userId}`);
+                const userName = userInfo.user_name || '未知主播';
+                userCache.set(userId, userName);
+                return userName;
+            } catch (err) {
+                console.error(`获取用户 ${userId} 信息失败:`, err);
+                userCache.set(userId, '未知主播');
+                return '未知主播';
+            }
+        }
+
+        function buildCoverUrl(room) {
+            const roomId = room?.room_id;
+            const coverName = room?.cover;
+            if (!roomId || !coverName) return '';
+            return `/api/live/CoverPicture/${encodeURIComponent(roomId)}/${encodeURIComponent(coverName)}`;
+        }
+
+        async function loadLiveRooms(page) {
+            roomGrid.innerHTML = '加载中...';
+            prevBtn.disabled = true;
+            nextBtn.disabled = true;
+
+            try {
+                const data = await apiFetch(`/api/live/LiveRoomList/${page}`);
+                const rooms = data?.live_infos || [];
+
+                if (rooms.length === 0 && page === 1) {
+                    roomGrid.innerHTML = '<div style="color:#666; padding: 20px 0; text-align: center;">当前没有直播</div>';
+                    nextBtn.disabled = true;
+                } else {
+                    roomGrid.innerHTML = '';
+                    const cardPromises = rooms.map(async (room) => {
+                        const card = document.createElement('a');
+                        card.className = 'room-card';
+                        card.href = `/liveRoom?roomId=${encodeURIComponent(room.room_id)}`;
+
+                        const coverDiv = document.createElement('div');
+                        coverDiv.className = 'cover-image';
+                        const coverUrl = buildCoverUrl(room);
+                        if (coverUrl) {
+                            coverDiv.style.backgroundImage = `url('${coverUrl}')`;
+                        } else {
+                            coverDiv.style.backgroundImage = 'none';
+                            coverDiv.style.display = 'flex';
+                            coverDiv.style.alignItems = 'center';
+                            coverDiv.style.justifyContent = 'center';
+                            coverDiv.style.color = '#999';
+                            coverDiv.textContent = '暂无封面';
+                        }
+
+                        const infoDiv = document.createElement('div');
+                        infoDiv.className = 'room-info';
+
+                        const streamerName = await getUserName(room.user_id);
+                        infoDiv.innerHTML = `
+                            <div class="room-title" title="${escapeHtml(room.title)}">${escapeHtml(room.title) || '无标题'}</div>
+                            <div class="room-meta">主播: ${escapeHtml(streamerName)}</div>
+                            <div class="room-meta">在线: ${escapeHtml(room.current_people_num)}</div>
+                            <div class="room-meta desc">${escapeHtml(room.description)}</div>
+                        `;
+
+                        card.appendChild(coverDiv);
+                        card.appendChild(infoDiv);
+                        return card;
+                    });
+
+                    const cardElements = await Promise.all(cardPromises);
+                    cardElements.forEach(card => roomGrid.appendChild(card));
+
+                    nextBtn.disabled = rooms.length < 10;
+                }
+
+                pageInfo.textContent = `第 ${page} 页`;
+                prevBtn.disabled = page <= 1;
+
+            } catch (err) {
+                roomGrid.innerHTML = `<div style="color:#d9534f; padding: 20px 0; text-align: center;">加载失败: ${escapeHtml(err?.message || err)}</div>`;
+            }
+        }
+
+        function navigateToPage(page) {
+            const url = new URL(window.location);
+            url.searchParams.set('page', page);
+            window.history.pushState({page}, `第 ${page} 页`, url);
+            loadLiveRooms(page);
+        }
+
+        prevBtn.onclick = () => {
+            const currentPage = parsePageFromUrl();
+            if (currentPage > 1) navigateToPage(currentPage - 1);
+        };
+
+        nextBtn.onclick = () => {
+            const currentPage = parsePageFromUrl();
+            navigateToPage(currentPage + 1);
+        };
+
+        window.onpopstate = (event) => {
+            loadLiveRooms(event.state?.page || parsePageFromUrl());
+        };
+
+        loadLiveRooms(parsePageFromUrl());
+    })();
+</script>
+
+</body>
+</html>

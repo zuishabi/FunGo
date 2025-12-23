@@ -29,5 +29,6 @@ func NewOnlineGameLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Online
 
 func (l *OnlineGameLogic) OnlineGame(req *types.OnlineGameReq) error {
 	// 在这里将游玩时间记录到redis中进行聚合
-	return l.svcCtx.RedisCli.HIncrBy(l.ctx, "online-game-play-time", strconv.Itoa(int(req.ID)), 1).Err()
+	err := l.svcCtx.RedisCli.HIncrBy(l.ctx, "online-game-play-time", strconv.Itoa(int(req.ID)), 1).Err()
+	return err
 }

@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的直播间</title>
+    <link rel="stylesheet" href="/common.css">
+    <style>
+        main {
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 0 16px;
+            display: flex; /* 使用 flex 布局 */
+            flex-direction: column; /* 垂直排列 */
+            gap: 20px; /* 子元素间距 */
+        }
+        .stack { display: flex; flex-direction: column; gap: 16px; }
+        .panel { background-color: #fff; padding: 16px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .row { display:flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .muted { color: #666; }
+        .kv { background:#f3f4f6; padding: 10px 12px; border-radius: 6px; }
+        .kv p { margin: 6px 0; word-break: break-all; }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display:block; margin-bottom: 6px; font-weight: 600; }
+        .form-group input[type="text"], .form-group textarea {
+            width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;
+        }
+        .form-group textarea { resize: vertical; min-height: 90px; }
+        .cover-preview { width: 220px; height: 124px; object-fit: cover; background: #eee; border-radius: 6px; border: 1px solid #eee; }
+        .divider { height: 1px; background: #eee; margin: 12px 0; }
+        #message { margin-top: 10px; font-weight: 600; }
+        .editable {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 6px;
+            border: 1px dashed transparent;
+            background: transparent;
+            transition: background .15s ease, border-color .15s ease;
+        }
+        .editable:hover {
+            background: #f6f8ff;
+            border-color: #c7d2fe;
+        }
+        .editable:focus {
+            outline: none;
+            background: #eef2ff;
+            border-color: #6366f1;
+        }
+        .editable[data-placeholder]:empty::before {
+            content: attr(data-placeholder);
+            color: #9ca3af;
+        }
+
+        .edit-hint {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: 8px;
+            font-size: 12px;
+            color: #6b7280;
+            user-select: none;
+            vertical-align: middle;
+            cursor: pointer;
+        }
+        .edit-hint .icon {
+            width: 14px;
+            height: 14px;
+            display: inline-block;
+            border: 1px solid #9ca3af;
+            border-radius: 3px;
+            position: relative;
+        }
+        /* 简单“铅笔”效果（纯 CSS） */
+        .edit-hint .icon::after {
+            content: "";
+            position: absolute;
+            left: 3px;
+            top: 7px;
+            width: 8px;
+            height: 2px;
+            background: #9ca3af;
+            transform: rotate(-25deg);
+            border-radius: 1px;
+        }
+        .edit-hint:hover { color: #374151; }
+        .edit-hint:hover .icon { border-color: #6b7280; }
+        .edit-hint:hover .icon::after { background: #6b7280; }
+
+        .cover-wrap {
+            position: relative;
+            display: inline-block;
+            line-height: 0;
+        }
+        .cover-badge {
+            position: absolute;
+            right: 8px;
+            bottom: 8px;
+            background: rgba(17, 24, 39, .75);
+            color: #fff;
+            font-size: 12px;
+            padding: 6px 8px;
+            border-radius: 999px;
+            line-height: 1;
+            pointer-events: none;
+        }
+        .cover-wrap:hover .cover-badge {
+            background: rgba(17, 24, 39, .9);
+        }
+        .page-actions {
+            width: 100%;
+            max-width: 1000px;
+            margin: 0 auto 12px auto;
+            padding: 0 16px;
+        }
+        .btn-back {
+            padding: 8px 12px;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .btn-back:hover { background: #f9fafb; }
+    </style>
+</head>
+<body>
+
+<div id="header-container"></div>
+
+<main>
+    <div class="page-actions">
+        <button type="button" id="btn-back" class="btn-back">返回</button>
+    </div>
+    <h1>我的直播间</h1>
+
+    <div class="stack">
+        <!-- 上：状态与操作 -->
+        <section id="state-panel" class="panel">
+            <div class="muted">正在加载直播间状态...</div>
+        </section>
+
+        <!-- 下：当前信息展示 + 修改 -->
+        <section id="info-panel" class="panel" style="display:none;">
+            <h3 style="margin: 0 0 10px 0;">当前直播间信息</h3>
+
+            <div class="row">
+                <img id="cover-preview" class="cover-preview" alt="封面预览">
+                <div style="flex:1; min-width: 240px;">
+                    <div><strong>标题：</strong><span id="current-title" class="muted"></span></div>
+                    <div style="margin-top: 6px;"><strong>简介：</strong><span id="current-desc" class="muted"></span></div>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+            <form id="edit-room-form">
+                <div class="row">
+                    <button type="submit" class="primary">保存修改</button>
+                    <div id="message" class="muted" style="margin-left: 12px;"></div>
+                </div>
+            </form>
+        </section>
+    </div>
+</main>
+
+<script src="/common.js"></script>
+
+<script>
+    (async function () {
+        const backBtn = document.getElementById('btn-back');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                if (window.history.length > 1) window.history.back();
+                else window.location.href = '/';
+            });
+        }
+
+        await loadHeader('#header-container');
+
+        const statePanel = document.getElementById('state-panel');
+        const infoPanel = document.getElementById('info-panel');
+
+        const coverPreview = document.getElementById('cover-preview');
+        const currentTitleEl = document.getElementById('current-title');
+        const currentDescEl = document.getElementById('current-desc');
+
+        const editForm = document.getElementById('edit-room-form');
+        const messageEl = document.getElementById('message');
+
+        // 隐藏的封面选择器：点击图片时触发
+        const inlineCoverInput = document.createElement('input');
+        inlineCoverInput.type = 'file';
+        inlineCoverInput.accept = 'image/png, image/jpeg';
+        inlineCoverInput.style.display = 'none';
+        document.body.appendChild(inlineCoverInput);
+
+        let liveState = null;
+        let liveInfo = null;
+        let inlineEditingInited = false;
+
+        // 用来做“差量提交”的初始快照
+        let baseline = {
+            title: '',
+            description: '',
+            coverSelected: false
+        };
+
+        function escapeHtml(s) {
+            return String(s || '').replace(/[&<>\"']/g, c => ({
+                '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+            }[c]));
+        }
+
+        function setMessage(text, color) {
+            messageEl.textContent = text || '';
+            messageEl.style.color = color || '#333';
+        }
+
+        function getText(el) {
+            return (el?.textContent || '').trim();
+        }
+
+        async function saveEdits() {
+            if (!liveState?.room_id) throw new Error('room_id 为空，无法保存');
+
+            const title = getText(currentTitleEl);
+            const description = getText(currentDescEl);
+            const file = inlineCoverInput.files && inlineCoverInput.files[0];
+
+            // 你做了 baseline，就做个最小判断：没改就不发请求
+            const nothingChanged =
+                title === (baseline.title || '') &&
+                description === (baseline.description || '') &&
+                !file;
+
+            if (nothingChanged) {
+                setMessage('没有修改内容，无需保存。', '#666');
+                return;
+            }
+
+            const fd = new FormData();
+            // 后端常见字段名（如果你后端用的名字不同，把这里改成后端实际接收的 key）
+            fd.append('room_id', String(liveState.room_id));
+            fd.append('title', title);
+            fd.append('description', description);
+            if (file) fd.append('cover', file);
+
+            setMessage('正在保存...', '#666');
+
+            // 用原生 fetch 发送 multipart/form-data（不要手动设置 Content-Type）
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/live/EditLiveRoom', {
+                method: 'POST',
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                body: fd,
+            });
+
+            const ct = (res.headers.get('Content-Type') || '').toLowerCase();
+            const body = ct.includes('application/json') ? await res.json() : null;
+
+            if (!res.ok) throw new Error(body?.msg || `HTTP ${res.status}`);
+            if (body && typeof body.code === 'number' && body.code !== 0) throw new Error(body?.msg || '保存失败');
+
+            setMessage('保存成功', '#16a34a');
+
+            // 更新 baseline，避免保存后还提示“有修改”
+            baseline.title = title;
+            baseline.description = description;
+            inlineCoverInput.value = ''; // 清掉已选文件
+
+            await refreshAll();
+        }
+
+// 绑定表单提交事件（关键：否则点击按钮不会触发任何请求）
+        editForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                await saveEdits();
+            } catch (err) {
+                setMessage(`保存失败：${err?.message || err}`, '#d9534f');
+                console.error('[EditLiveRoom] error =', err);
+            }
+        });
+
+        // 1) 让“展示区域”可直接编辑：标题/简介用 contenteditable
+        function enableInlineEditingOnce() {
+            if (inlineEditingInited) return;
+            inlineEditingInited = true;
+
+            const bindEditable = (el, placeholderText) => {
+                el.classList.add('editable');
+                el.setAttribute('contenteditable', 'true');
+                el.dataset.placeholder = placeholderText;
+
+                let hint = el.nextElementSibling;
+                if (!hint || !hint.classList || !hint.classList.contains('edit-hint')) {
+                    hint = document.createElement('span');
+                    hint.className = 'edit-hint';
+                    hint.innerHTML = '<span class="icon" aria-hidden="true"></span><span>可修改</span>';
+                    el.insertAdjacentElement('afterend', hint);
+
+                    hint.addEventListener('click', () => {
+                        el.focus();
+                        const range = document.createRange();
+                        range.selectNodeContents(el);
+                        range.collapse(false);
+                        const sel = window.getSelection();
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                    });
+                }
+
+                el.addEventListener('focus', () => {
+                    el.classList.remove('muted');
+                });
+
+                el.addEventListener('blur', () => {
+                    const t = (el.textContent || '').trim();
+                    el.classList.toggle('muted', !t);
+                });
+
+                const initText = (el.textContent || '').trim();
+                el.classList.toggle('muted', !initText);
+            };
+
+            bindEditable(currentTitleEl, '点击修改标题');
+            bindEditable(currentDescEl, '点击修改简介');
+
+            coverPreview.style.cursor = 'pointer';
+            coverPreview.title = '点击更换封面';
+            coverPreview.addEventListener('click', () => inlineCoverInput.click());
+
+            inlineCoverInput.addEventListener('change', () => {
+                const f = inlineCoverInput.files && inlineCoverInput.files[0];
+                if (!f) return;
+                const url = URL.createObjectURL(f);
+                coverPreview.src = url;
+                setMessage('已选择新封面，点击“保存修改”提交。', '#666');
+            });
+        }
+
+        function renderInfoPanel() {
+            if (!liveInfo) return;
+
+            // 1) 先显示旧信息（标题/简介）
+            currentTitleEl.textContent = liveInfo.title || '';
+            currentDescEl.textContent = liveInfo.description || '';
+
+            // 2) 封面必须带 name（liveInfo.cover）
+            const roomId = liveInfo.room_id;
+            const coverName = liveInfo.cover;
+            if (roomId && coverName) {
+                coverPreview.src = `/api/live/CoverPicture/${encodeURIComponent(roomId)}/${encodeURIComponent(coverName)}`;
+            } else {
+                // 没有封面时清空，避免显示坏图
+                coverPreview.removeAttribute('src');
+            }
+
+            // 3) 建立 baseline，用来差量提交
+            baseline = {
+                title: liveInfo.title || '',
+                description: liveInfo.description || '',
+                coverSelected: false
+            };
+
+            // 4) 只初始化一次“原地编辑”
+            enableInlineEditingOnce();
+        }
+
+        async function fetchLiveInfo() {
+            const roomId = liveState && liveState.room_id;
+            if (!roomId) {
+                liveInfo = null;
+                infoPanel.style.display = 'none';
+                return;
+            }
+            liveInfo = await apiFetch(`/api/live/LiveInfo/${roomId}`);
+            console.log('[LiveInfo] raw resp =', liveInfo);
+        }
+
+        async function refreshAll() {
+            setMessage('', '#333');
+            await fetchState();
+            renderStatePanel();
+
+            if (liveState.state === 2 || liveState.state === 3) {
+                await fetchLiveInfo();
+                if (liveInfo) renderInfoPanel();
+            }
+        }
+
+        await refreshAll();
+
+        async function fetchState() {
+            // 该接口在 api 文件里标注了 jwt: Auth，需确保 apiFetch 会自动带上 token
+            liveState = await apiFetch('/api/live/LiveRoomState');
+            return liveState;
+        }
+
+        // 渲染状态面板（把 statePanel 的“正在加载...”替换为可操作 UI）
+        function renderStatePanel() {
+            if (!statePanel) return;
+
+            if (!liveState) {
+                statePanel.innerHTML = '<div class="muted">无法获取直播间状态</div>';
+                return;
+            }
+
+            const state = Number(liveState.state);
+            const roomId = liveState.room_id;
+
+            // 1=未创建，2=未开播，3=已开播
+            if (state === 1) {
+                statePanel.innerHTML = `
+                <div class="row">
+                    <div class="kv" style="flex:1;">
+                        <p><strong>状态：</strong>未创建直播间</p>
+                    </div>
+                    <button type="button" id="btn-create-room" class="primary">创建直播间</button>
+                </div>
+            `;
+
+                const btn = document.getElementById('btn-create-room');
+                if (btn) {
+                    btn.addEventListener('click', async () => {
+                        setMessage('正在创建直播间...', '#666');
+                        try {
+                            await apiFetch('/api/live/CreateLiveRoom');
+                            setMessage('创建成功', '#16a34a');
+                            await refreshAll();
+                        } catch (e) {
+                            setMessage(`创建失败：${e?.message || e}`, '#d9534f');
+                        }
+                    });
+                }
+
+                infoPanel.style.display = 'none';
+                return;
+            }
+
+            if (state === 2) {
+                statePanel.innerHTML = `
+                <div class="row">
+                    <div class="kv" style="flex:1;">
+                        <p><strong>状态：</strong>已创建，未开播</p>
+                        <p><strong>房间ID：</strong>${escapeHtml(roomId)}</p>
+                    </div>
+                    <button type="button" id="btn-start-live" class="primary">开始直播</button>
+                </div>
+            `;
+
+                const btn = document.getElementById('btn-start-live');
+                if (btn) {
+                    btn.addEventListener('click', async () => {
+                        setMessage('正在开始直播...', '#666');
+                        try {
+                            await apiFetch('/api/live/Startlive');
+                            setMessage('已开播', '#16a34a');
+                            await refreshAll();
+                        } catch (e) {
+                            setMessage(`开播失败：${e?.message || e}`, '#d9534f');
+                        }
+                    });
+                }
+
+                infoPanel.style.display = '';
+                return;
+            }
+
+            if (state === 3) {
+                statePanel.innerHTML = `
+                <div class="row">
+                    <div class="kv" style="flex:1;">
+                        <p><strong>状态：</strong>直播中</p>
+                        <p><strong>房间ID：</strong>${escapeHtml(roomId)}</p>
+                        <p><strong>推流IP：</strong>${escapeHtml(liveState.ip)}</p>
+                        <p><strong>推流Key：</strong>${escapeHtml(liveState.key)}</p>
+                    </div>
+                    <button type="button" id="btn-stop-live" class="danger">停止直播</button>
+                </div>
+            `;
+
+                const btn = document.getElementById('btn-stop-live');
+                if (btn) {
+                    btn.addEventListener('click', async () => {
+                        setMessage('正在停止直播...', '#666');
+                        try {
+                            await apiFetch('/api/live/StopLive');
+                            setMessage('已停止', '#16a34a');
+                            await refreshAll();
+                        } catch (e) {
+                            setMessage(`停止失败：${e?.message || e}`, '#d9534f');
+                        }
+                    });
+                }
+
+                infoPanel.style.display = '';
+                return;
+            }
+
+            statePanel.innerHTML = '<div class="muted">未知状态</div>';
+        }
+    })();
+</script>
+
+</body>
+</html>

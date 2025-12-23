@@ -291,7 +291,7 @@
                     const playBtn = document.createElement('button');
                     playBtn.className = 'primary';
                     playBtn.textContent = '在线游玩';
-                    playBtn.onclick = () => window.open(`/play.html?id=${info.id}`, '_blank');
+                    playBtn.onclick = () => window.open(`/onlineGame?id=${info.id}`);
                     actionsBar.appendChild(playBtn);
                 }
                 if (info.can_download) {

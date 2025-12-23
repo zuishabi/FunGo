@@ -1,0 +1,111 @@
+type (
+	LiveInfoReq {
+		RoomID uint64 `path:"room_id"`
+	}
+	LiveInfo {
+		UserID           uint64 `json:"user_id"`
+		RoomID           uint64 `json:"room_id"`
+		Title            string `json:"title"`
+		CurrentPeopleNum int    `json:"current_people_num"`
+		Description      string `json:"description"`
+		Cover            string `json:"cover"`
+	}
+	CoverPictureReq {
+		RoomID uint64 `path:"room_id"`
+		Name   string `path:"name"`
+	}
+	LiveRoomReq {
+		RoomID uint64 `path:"room_id"`
+	}
+	LiveRoomRsp {
+		LiveInfo
+		Key string `json:"key"`
+	}
+	LiveRoomListReq {
+		Page int `path:"page"`
+	}
+	LiveRoomListRsp {
+		LiveInfos []LiveInfo `json:"live_infos"`
+	}
+)
+
+@server (
+	prefix: /api/live
+)
+service Live {
+	@handler LiveInfo
+	get /LiveInfo/:room_id (LiveInfoReq) returns (LiveInfo)
+
+	@handler CoverPicture
+	get /CoverPicture/:room_id/:name (CoverPictureReq)
+
+	@handler LiveRoom
+	get /liveRoom/:room_id (LiveRoomReq) returns (LiveRoomRsp)
+
+	@handler LiveRoomListReq
+	get /LiveRoomList/:page (LiveRoomListReq) returns (LiveRoomListRsp)
+}
+
+type (
+	LiveRoomStateRsp {
+		State  int    `json:"state"` // 1代表未创建直播间，2代表未开播，3代表已开播
+		IP     string `json:"ip"`
+		Key    string `json:"key"`
+		RoomID uint64 `json:"room_id"`
+	}
+)
+
+@server (
+	prefix: /api/live
+	jwt:    Auth
+)
+service Live {
+	@handler CreateLiveRoom
+	get /CreateLiveRoom
+
+	@handler EditLiveRoomReq
+	post /EditLiveRoom
+
+	@handler StartLive
+	get /Startlive
+
+	@handler StopLive
+	get /StopLive
+
+	@handler LiveRoomState
+	get /LiveRoomState returns (LiveRoomStateRsp)
+}
+
+type (
+	SendBulletChat {
+		UserName string `json:"user_name"`
+		Content  string `json:"content"`
+		RoomID   uint64 `json:"room_id"`
+	}
+	BulletChatMessageReq {
+		RoomID uint64 `path:"room_id"`
+	}
+	BulletChatMessageRsp {
+		Content  string `json:"content"`
+		UserName string `json:"user_name"`
+	}
+)
+
+@server (
+	prefix: /api/live
+	sse:    true
+)
+service Live {
+	@handler BulletChat
+	get /BulletChatMessage/:room_id (BulletChatMessageReq) returns (BulletChatMessageRsp)
+}
+
+@server (
+	prefix: /api/live
+//jwt:    Auth
+)
+service Live {
+	@handler SendBulletChat
+	post /SendBulletChat (SendBulletChat)
+}
+

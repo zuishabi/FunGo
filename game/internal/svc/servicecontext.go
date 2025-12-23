@@ -60,6 +60,7 @@ func AggregateOnlinePlayTime(svcCTX *ServiceContext) {
 		case <-ticker.C:
 			res, err := svcCTX.RedisCli.HGetAll(context.Background(), "online-game-play-time").Result()
 			if err != nil {
+				fmt.Println(err)
 				continue
 			}
 			for i, v := range res {
@@ -72,7 +73,9 @@ func AggregateOnlinePlayTime(svcCTX *ServiceContext) {
 					UpdateColumn("play_time", gorm.Expr("play_time + ?", v)).Error; err != nil {
 					continue
 				}
+				fmt.Println("新增游玩次数：", v)
 			}
+			svcCTX.RedisCli.Del(context.Background(), "online-game-play-time")
 		}
 	}
 }

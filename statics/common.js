@@ -48,7 +48,7 @@ function logout() {
 async function loadHeader(containerSelector = '#header-container') {
     const el = document.querySelector(containerSelector);
     if (!el) return;
-    const resp = await fetch('/header?v=0.1');
+    const resp = await fetch('/header');
     el.innerHTML = await resp.text();
     await updateAuthUI();
 }
@@ -117,7 +117,8 @@ if (!window.__header_simple_delegate_bound) {
         if (el && el.closest && el.closest('#nav-posts')) { location.href = '/'; return; }
         // 直接跳到标准 section 路由，避免中间 /hot 导致状态不一致
         if (el && el.closest && el.closest('#nav-game')) { location.href = '/gameList'; return; }
-        if (el && el.closest && el.closest('#nav-community')) { location.hash = '/community'; return; }
+        if (el && el.closest && el.closest('#nav-live')) { location.href = '/liveList'; return; }
+        if (el && el.closest && el.closest('#nav-community')) { location.hash = '/community';  }
     });
 }
 

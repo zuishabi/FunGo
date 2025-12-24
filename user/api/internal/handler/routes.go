@@ -4,9 +4,8 @@
 package handler
 
 import (
+	"fungo/user/api/internal/svc"
 	"net/http"
-
-	"fungo/user/internal/svc"
 
 	"github.com/zeromicro/go-zero/rest"
 )

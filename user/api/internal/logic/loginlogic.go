@@ -7,10 +7,9 @@ import (
 	"context"
 	"errors"
 	"fungo/common/jwts"
+	"fungo/user/api/internal/svc"
+	"fungo/user/api/internal/types"
 	"fungo/user/model"
-
-	"fungo/user/internal/svc"
-	"fungo/user/internal/types"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"golang.org/x/crypto/bcrypt"

@@ -23,4 +23,3 @@ else
   redis.call("SETBIT", key, uid, 1)
   return {1, 0}
 end
-

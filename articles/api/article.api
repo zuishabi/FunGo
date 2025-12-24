@@ -86,6 +86,12 @@ service article {
 	get /articleDetail/:id (ArticleDetailReq) returns (ArticleDetailRsp)
 }
 
+type (
+	DeleteArticle {
+		ArticleID uint64 `json:"article_id"`
+	}
+)
+
 @server (
 	prefix: /api/article
 	jwt:    Auth
@@ -99,5 +105,8 @@ service article {
 
 	@handler CreateArticle
 	post /createArticle
+
+	@handler DeleteArticle
+	post /deleteArticle (DeleteArticle)
 }
 

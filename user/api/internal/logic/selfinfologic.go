@@ -6,9 +6,8 @@ package logic
 import (
 	"context"
 	"encoding/json"
-
-	"fungo/user/internal/svc"
-	"fungo/user/internal/types"
+	"fungo/user/api/internal/svc"
+	"fungo/user/api/internal/types"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )

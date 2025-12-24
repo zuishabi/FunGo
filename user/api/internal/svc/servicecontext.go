@@ -5,7 +5,7 @@ package svc
 
 import (
 	"fmt"
-	"fungo/user/internal/config"
+	"fungo/user/api/internal/config"
 	"fungo/user/model"
 
 	"gorm.io/driver/mysql"

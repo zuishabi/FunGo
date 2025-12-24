@@ -5,10 +5,9 @@ package handler
 
 import (
 	"fungo/common/response"
+	"fungo/user/api/internal/logic"
+	"fungo/user/api/internal/svc"
 	"net/http"
-
-	"fungo/user/internal/logic"
-	"fungo/user/internal/svc"
 )
 
 func selfInfoHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {

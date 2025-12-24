@@ -9,9 +9,11 @@ import (
 	"fungo/live/api/internal/config"
 	"fungo/live/api/internal/types"
 	"fungo/live/model"
+	"fungo/user/rpc/userclient"
 	"sync"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/zeromicro/go-zero/zrpc"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -21,39 +23,68 @@ type ServiceContext struct {
 	Db               *gorm.DB
 	RedisClient      *redis.Client
 	BulletChatServer *BulletChatServerType
+	UserRPC          userclient.User
 }
 
 type BulletChatServerType struct {
-	lock  sync.Mutex
-	rooms map[uint64]map[chan *types.BulletChatMessageRsp]struct{}
+	lock  sync.RWMutex
+	rooms map[uint64]*Room
+}
+
+type Room struct {
+	lock  sync.RWMutex
+	users map[chan *types.BulletChatMessageRsp]struct{}
 }
 
 func (b *BulletChatServerType) CreateConn(roomID uint64) chan *types.BulletChatMessageRsp {
-	b.lock.Lock()
+	b.lock.RLock()
+	defer b.lock.RUnlock()
 	bulletChatMessageChan := make(chan *types.BulletChatMessageRsp, 5)
-	if _, ok := b.rooms[roomID]; !ok {
-		b.rooms[roomID] = make(map[chan *types.BulletChatMessageRsp]struct{})
+	room, ok := b.rooms[roomID]
+	if !ok {
+		return nil
 	}
-	b.rooms[roomID][bulletChatMessageChan] = struct{}{}
-	b.lock.Unlock()
+	room.lock.Lock()
+	room.users[bulletChatMessageChan] = struct{}{}
+	room.lock.Unlock()
 	return bulletChatMessageChan
 }
 
 func (b *BulletChatServerType) DeleteConn(roomID uint64, conn chan *types.BulletChatMessageRsp) {
-	b.lock.Lock()
-	delete(b.rooms[roomID], conn)
-	b.lock.Unlock()
+	fmt.Println("删除连接")
+	b.lock.RLock()
+	room := b.rooms[roomID]
+	room.lock.Lock()
+	delete(room.users, conn)
+	room.lock.Unlock()
+	b.lock.RUnlock()
 }
 
 func (b *BulletChatServerType) SendBulletChatMessage(roomID uint64, message string, userName string) {
 	b.lock.Lock()
-	for i, _ := range b.rooms[roomID] {
+	room, ok := b.rooms[roomID]
+	if !ok {
+		// 在这里创建房间
+		b.rooms[roomID] = &Room{
+			users: make(map[chan *types.BulletChatMessageRsp]struct{}),
+		}
+		room = b.rooms[roomID]
+	}
+	room.lock.RLock()
+	for i, _ := range room.users {
 		i <- &types.BulletChatMessageRsp{
 			Content:  message,
 			UserName: userName,
 		}
 	}
+	room.lock.RUnlock()
 	b.lock.Unlock()
+}
+
+func (b *BulletChatServerType) DeleteRoom(roomID uint64) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+	delete(b.rooms, roomID)
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -82,6 +113,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		Config:           c,
 		Db:               db,
 		RedisClient:      cli,
-		BulletChatServer: &BulletChatServerType{rooms: make(map[uint64]map[chan *types.BulletChatMessageRsp]struct{})},
+		BulletChatServer: &BulletChatServerType{rooms: make(map[uint64]*Room)},
+		UserRPC:          userclient.NewUser(zrpc.MustNewClient(c.UserRpc)),
 	}
 }

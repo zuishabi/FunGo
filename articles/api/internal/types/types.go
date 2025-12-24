@@ -53,6 +53,10 @@ type CommentsRsp struct {
 	Comments []CommentInfo `json:"comments"`
 }
 
+type DeleteArticle struct {
+	ArticleID uint64 `json:"article_id"`
+}
+
 type HotArticleListRsp struct {
 	Articles []ArticleInfo `json:"articles"`
 }

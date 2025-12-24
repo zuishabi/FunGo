@@ -19,6 +19,7 @@ type CoverPictureReq struct {
 
 type LiveInfo struct {
 	UserID           uint64 `json:"user_id"`
+	UserName         string `json:"user_name"`
 	RoomID           uint64 `json:"room_id"`
 	Title            string `json:"title"`
 	CurrentPeopleNum int    `json:"current_people_num"`
@@ -55,7 +56,6 @@ type LiveRoomStateRsp struct {
 }
 
 type SendBulletChat struct {
-	UserName string `json:"user_name"`
-	Content  string `json:"content"`
-	RoomID   uint64 `json:"room_id"`
+	Content string `json:"content"`
+	RoomID  uint64 `json:"room_id"`
 }

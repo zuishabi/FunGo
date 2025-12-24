@@ -61,6 +61,7 @@ func BulletChatHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 					continue
 				}
 
+				// 将信息写入writer中
 				if _, err := fmt.Fprintf(w, "data: %s\n\n", string(output)); err != nil {
 					logc.Errorw(r.Context(), "BulletChatHandler", logc.Field("error", err))
 					return

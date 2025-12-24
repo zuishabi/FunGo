@@ -6,6 +6,7 @@ package logic
 import (
 	"context"
 	"fmt"
+	"fungo/user/rpc/user"
 	"strconv"
 
 	"fungo/live/api/internal/svc"
@@ -44,6 +45,8 @@ func (l *LiveRoomListReqLogic) LiveRoomListReq(req *types.LiveRoomListReq) (resp
 		uid, _ := strconv.Atoi(result[3].(string))
 		liveInfos[i].UserID = uint64(uid)
 		liveInfos[i].Cover = result[4].(string)
+		userInfo, _ := l.svcCtx.UserRPC.GetUserInfo(context.Background(), &user.UserInfoReq{Uid: liveInfos[i].UserID})
+		liveInfos[i].UserName = userInfo.UserName
 	}
 
 	return &types.LiveRoomListRsp{LiveInfos: liveInfos}, nil

@@ -4,6 +4,7 @@ type (
 	}
 	LiveInfo {
 		UserID           uint64 `json:"user_id"`
+		UserName         string `json:"user_name"`
 		RoomID           uint64 `json:"room_id"`
 		Title            string `json:"title"`
 		CurrentPeopleNum int    `json:"current_people_num"`
@@ -78,9 +79,8 @@ service Live {
 
 type (
 	SendBulletChat {
-		UserName string `json:"user_name"`
-		Content  string `json:"content"`
-		RoomID   uint64 `json:"room_id"`
+		Content string `json:"content"`
+		RoomID  uint64 `json:"room_id"`
 	}
 	BulletChatMessageReq {
 		RoomID uint64 `path:"room_id"`
@@ -102,7 +102,7 @@ service Live {
 
 @server (
 	prefix: /api/live
-//jwt:    Auth
+	jwt:    Auth
 )
 service Live {
 	@handler SendBulletChat

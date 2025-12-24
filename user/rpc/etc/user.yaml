@@ -1,0 +1,14 @@
+Name: user.rpc
+ListenOn: 0.0.0.0:9100
+
+Etcd:
+  Hosts:
+  - 127.0.0.1:2379
+  Key: user.rpc
+
+RedisCli:
+  Addr: localhost:6379
+  Password: '861214959'
+
+Mysql:
+  DataSource: root:861214959@tcp(127.0.0.1:3306)/FunGo?charset=utf8mb4&parseTime=True&loc=Local

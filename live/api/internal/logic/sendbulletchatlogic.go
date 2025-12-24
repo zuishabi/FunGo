@@ -27,6 +27,7 @@ func NewSendBulletChatLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Se
 
 // SendBulletChat 发送弹幕
 func (l *SendBulletChatLogic) SendBulletChat(req *types.SendBulletChat) error {
-	l.svcCtx.BulletChatServer.SendBulletChatMessage(req.RoomID, req.Content, req.UserName)
+	username := l.ctx.Value("user_name").(string)
+	l.svcCtx.BulletChatServer.SendBulletChatMessage(req.RoomID, req.Content, username)
 	return nil
 }

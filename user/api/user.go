@@ -7,9 +7,9 @@ import (
 	"flag"
 	"fmt"
 	"fungo/common/jwts"
-	"fungo/user/internal/config"
-	"fungo/user/internal/handler"
-	"fungo/user/internal/svc"
+	"fungo/user/api/internal/config"
+	"fungo/user/api/internal/handler"
+	"fungo/user/api/internal/svc"
 
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/rest"

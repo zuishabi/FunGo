@@ -43,5 +43,8 @@ func (l *StopLiveLogic) StopLive() error {
 	l.svcCtx.RedisClient.SRem(context.Background(), "key-set", key)
 	l.svcCtx.RedisClient.ZRem(context.Background(), "live-room-list", room.RoomID)
 
+	// 删除弹幕房间
+	l.svcCtx.BulletChatServer.DeleteRoom(room.RoomID)
+
 	return nil
 }

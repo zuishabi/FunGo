@@ -140,8 +140,6 @@
         const prevBtn = document.getElementById('prev-page');
         const nextBtn = document.getElementById('next-page');
 
-        const userCache = new Map();
-
         function escapeHtml(s) {
             return String(s || '').replace(/[&<>\"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
         }
@@ -152,26 +150,16 @@
             return isNaN(page) || page < 1 ? 1 : page;
         }
 
-        async function getUserName(userId) {
-            if (!userId) return '未知主播';
-            if (userCache.has(userId)) return userCache.get(userId);
-            try {
-                const userInfo = await apiFetch(`/api/user/userInfo/${userId}`);
-                const userName = userInfo.user_name || '未知主播';
-                userCache.set(userId, userName);
-                return userName;
-            } catch (err) {
-                console.error(`获取用户 ${userId} 信息失败:`, err);
-                userCache.set(userId, '未知主播');
-                return '未知主播';
-            }
-        }
-
         function buildCoverUrl(room) {
             const roomId = room?.room_id;
             const coverName = room?.cover;
             if (!roomId || !coverName) return '';
             return `/api/live/CoverPicture/${encodeURIComponent(roomId)}/${encodeURIComponent(coverName)}`;
+        }
+
+        function getStreamerName(room) {
+            // 兼容常见字段名：user_name（推荐）/UserName/anchor_name/主播名等
+            return room?.user_name || room?.UserName || room?.anchor_name || room?.anchorName || '未知主播';
         }
 
         async function loadLiveRooms(page) {
@@ -188,7 +176,8 @@
                     nextBtn.disabled = true;
                 } else {
                     roomGrid.innerHTML = '';
-                    const cardPromises = rooms.map(async (room) => {
+
+                    rooms.forEach((room) => {
                         const card = document.createElement('a');
                         card.className = 'room-card';
                         card.href = `/liveRoom?roomId=${encodeURIComponent(room.room_id)}`;
@@ -210,7 +199,8 @@
                         const infoDiv = document.createElement('div');
                         infoDiv.className = 'room-info';
 
-                        const streamerName = await getUserName(room.user_id);
+                        const streamerName = getStreamerName(room);
+
                         infoDiv.innerHTML = `
                             <div class="room-title" title="${escapeHtml(room.title)}">${escapeHtml(room.title) || '无标题'}</div>
                             <div class="room-meta">主播: ${escapeHtml(streamerName)}</div>
@@ -220,11 +210,8 @@
 
                         card.appendChild(coverDiv);
                         card.appendChild(infoDiv);
-                        return card;
+                        roomGrid.appendChild(card);
                     });
-
-                    const cardElements = await Promise.all(cardPromises);
-                    cardElements.forEach(card => roomGrid.appendChild(card));
 
                     nextBtn.disabled = rooms.length < 10;
                 }

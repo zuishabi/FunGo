@@ -59,28 +59,64 @@ async function updateAuthUI() {
     const registerLink = document.getElementById('register-link');
     const avatarWrap = document.getElementById('avatar-wrap');
     const avatar = document.getElementById('avatar');
+    const avatarImg = document.getElementById('avatar-img');
 
     if (!loginLink) return;
+
+    // 小工具：回退到字母占位
+    function showInitial(initialText) {
+        if (avatarImg) {
+            avatarImg.removeAttribute('src');
+            avatarImg.style.display = 'none';
+        }
+        if (avatar) {
+            avatar.textContent = initialText || 'U';
+            avatar.style.display = 'inline-block';
+        }
+    }
+
     if (!token) {
         loginLink.style.display = '';
         if (registerLink) registerLink.style.display = '';
         if (avatarWrap) avatarWrap.style.display = 'none';
+        showInitial('U');
         return;
     }
 
     try {
         const info = await apiFetch('/api/user/selfInfo');
         const name = info?.user_name || info?.UserName || '用户';
+        const uid = info?.user_id || info?.UserID;
+
         const initial = (name.slice(-1) || 'U').toUpperCase();
-        if (avatar) avatar.textContent = initial;
+
         loginLink.style.display = 'none';
         if (registerLink) registerLink.style.display = 'none';
         if (avatarWrap) avatarWrap.style.display = '';
+
+        // 先显示占位，头像加载成功再切换
+        showInitial(initial);
+
+        // 有 uid 才能拼头像地址
+        if (uid && avatarImg) {
+            const imgUrl = `/api/user/userCover/${encodeURIComponent(uid)}?t=${Date.now()}`;
+
+            avatarImg.onload = () => {
+                avatarImg.style.display = 'inline-block';
+                if (avatar) avatar.style.display = 'none';
+            };
+            avatarImg.onerror = () => {
+                showInitial(initial);
+            };
+
+            avatarImg.src = imgUrl;
+        }
     } catch {
         setAuthToken('');
         loginLink.style.display = '';
         if (registerLink) registerLink.style.display = '';
         if (avatarWrap) avatarWrap.style.display = 'none';
+        showInitial('U');
     }
 }
 
@@ -91,8 +127,8 @@ if (!window.__header_simple_delegate_bound) {
         const raw = e.target;
         const el = (raw && raw.nodeType === 3) ? raw.parentElement : raw;
 
-        // avatar 点击显示/隐藏菜单
-        if (el && el.closest && el.closest('#avatar')) {
+        // avatar 点击显示/隐藏菜单（点击图片或字母都可触发）
+        if (el && el.closest && el.closest('#avatar, #avatar-img')) {
             e.stopPropagation();
             const m = document.getElementById('avatar-menu');
             if (m) m.style.display = m.style.display === 'block' ? 'none' : 'block';
@@ -115,14 +151,12 @@ if (!window.__header_simple_delegate_bound) {
 
         // 导航按钮处理（保留原有 nav id）
         if (el && el.closest && el.closest('#nav-posts')) { location.href = '/'; return; }
-        // 直接跳到标准 section 路由，避免中间 /hot 导致状态不一致
         if (el && el.closest && el.closest('#nav-game')) { location.href = '/gameList'; return; }
         if (el && el.closest && el.closest('#nav-live')) { location.href = '/liveList'; return; }
         if (el && el.closest && el.closest('#nav-community')) { location.hash = '/community';  }
     });
 }
 
-// 导出接口供登录/注册页面使用
 window.apiFetch = apiFetch;
 window.loadHeader = loadHeader;
 window.updateAuthUI = updateAuthUI;

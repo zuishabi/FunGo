@@ -42,26 +42,30 @@ func (b *BulletChatServerType) CreateConn(roomID uint64) chan *types.BulletChatM
 	bulletChatMessageChan := make(chan *types.BulletChatMessageRsp, 5)
 	room, ok := b.rooms[roomID]
 	if !ok {
-		return nil
+		// 在这里创建房间
+		b.rooms[roomID] = &Room{
+			users: make(map[chan *types.BulletChatMessageRsp]struct{}),
+		}
+		room = b.rooms[roomID]
 	}
 	room.lock.Lock()
+	defer room.lock.Unlock()
 	room.users[bulletChatMessageChan] = struct{}{}
-	room.lock.Unlock()
 	return bulletChatMessageChan
 }
 
 func (b *BulletChatServerType) DeleteConn(roomID uint64, conn chan *types.BulletChatMessageRsp) {
-	fmt.Println("删除连接")
 	b.lock.RLock()
+	defer b.lock.RUnlock()
 	room := b.rooms[roomID]
 	room.lock.Lock()
+	defer room.lock.Unlock()
 	delete(room.users, conn)
-	room.lock.Unlock()
-	b.lock.RUnlock()
 }
 
 func (b *BulletChatServerType) SendBulletChatMessage(roomID uint64, message string, userName string) {
 	b.lock.Lock()
+	defer b.lock.Unlock()
 	room, ok := b.rooms[roomID]
 	if !ok {
 		// 在这里创建房间
@@ -71,14 +75,13 @@ func (b *BulletChatServerType) SendBulletChatMessage(roomID uint64, message stri
 		room = b.rooms[roomID]
 	}
 	room.lock.RLock()
+	defer room.lock.RUnlock()
 	for i, _ := range room.users {
 		i <- &types.BulletChatMessageRsp{
 			Content:  message,
 			UserName: userName,
 		}
 	}
-	room.lock.RUnlock()
-	b.lock.Unlock()
 }
 
 func (b *BulletChatServerType) DeleteRoom(roomID uint64) {

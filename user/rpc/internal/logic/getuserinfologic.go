@@ -53,9 +53,10 @@ func (l *GetUserInfoLogic) GetUserInfo(in *user.UserInfoReq) (*user.UserInfoRsp,
 	rsp.UserName = userInfo.UserName
 	rsp.CreatedAt = userInfo.CreatedAt.Format("2006.01.02 15:04")
 
+	// 设置用户信息的缓存，并设置过期时间
 	pipe := l.svcCtx.RedisCli.Pipeline()
 	pipe.HSet(context.Background(), key, "user_name", rsp.UserName, "created_at", rsp.CreatedAt)
-	pipe.Expire(context.Background(), key, 30*time.Minute) // 注释与实际保持一致
+	pipe.Expire(context.Background(), key, 30*time.Minute)
 	if _, werr := pipe.Exec(context.Background()); werr != nil {
 		l.Logger.Errorf("redis write cache failed, key=%s, err=%v", key, werr)
 	}

@@ -22,6 +22,10 @@ type SelfInfoRsp struct {
 	UserID   uint64 `json:"user_id"`
 }
 
+type UserCoverReq struct {
+	UserID uint64 `path:"user_id"`
+}
+
 type UserInfoReq struct {
 	UID uint64 `path:"uid"`
 }

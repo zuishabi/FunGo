@@ -24,6 +24,21 @@ services:
       - "6379:6379"
     environment:
       - REDIS_PASSWORD=861214959
+  srs:
+    container_name: srs
+    restart: always
+    image: ossrs/srs
+    networks:
+      - FunGo
+    ports:
+      - "10080:10080"
+      - "1935:1935"
+      - "1985:1985"
+      - "5060:5060"
+      - "8000:8000"
+      - "8080:8080"
+      - "9000:9000"
+
 
 volumes:
   fungo_data:

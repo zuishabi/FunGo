@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/common.css" />
+    <title>个人主页</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f6f8;
+        }
+
+        .page-wrap{
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+
+        .navbar {
+            display: flex;
+            background-color: #333;
+            padding: 10px;
+            border-radius: 10px;
+        }
+        .navbar a {
+            color: white;
+            padding: 10px 14px;
+            text-decoration: none;
+            cursor: pointer;
+            border-radius: 8px;
+        }
+        .navbar a:hover {
+            background-color: #575757;
+        }
+
+        .content {
+            margin-top: 14px;
+        }
+        .section {
+            display: none;
+        }
+        .section.active {
+            display: block;
+        }
+
+        /* 个人信息卡片 */
+        .profile-card{
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 16px;
+            box-shadow: 0 8px 24px rgba(17,24,39,0.06);
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            margin: 14px 0;
+        }
+
+        .avatar-wrap{
+            width: 88px;
+            height: 88px;
+            border-radius: 16px;
+            overflow: hidden;
+            position: relative;
+            flex: 0 0 auto;
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            cursor: pointer;
+        }
+
+        .avatar-wrap img{
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .avatar-mask{
+            position: absolute;
+            inset: 0;
+            background: rgba(17,24,39,0.55);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            user-select: none;
+        }
+
+        .avatar-wrap:hover .avatar-mask{
+            opacity: 1;
+        }
+
+        .profile-main{
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .profile-title{
+            font-size: 18px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 8px;
+        }
+
+        .profile-grid{
+            display: grid;
+            grid-template-columns: 96px 1fr;
+            gap: 6px 12px;
+            font-size: 14px;
+            color: #374151;
+        }
+        .profile-label{
+            color: #6b7280;
+        }
+
+        .hint{
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 8px;
+        }
+
+        /* 保持原有区域 */
+        #articles .post-card { margin-top: 12px; }
+    </style>
+</head>
+
+<body>
+<div id="header-container"></div> <!-- 加载头部 -->
+
+<div class="page-wrap">
+    <div id="userinfo">
+        <div class="profile-card">
+            <div id="avatarWrap" class="avatar-wrap" title="点击上传新头像">
+                <img id="userAvatar" alt="avatar" />
+                <div class="avatar-mask">编辑头像</div>
+            </div>
+
+            <div class="profile-main">
+                <div class="profile-title">个人信息</div>
+                <div id="user-info" class="profile-grid"></div>
+            </div>
+        </div>
+
+        <!-- 隐藏文件选择 -->
+        <input id="avatarFileInput" type="file" accept="image/*" style="display:none" />
+    </div>
+
+    <div class="content">
+        <div class="navbar">
+            <a onclick="showSection('articles')">帖子发布</a>
+            <a onclick="showSection('games')">游戏分享</a>
+            <a onclick="showSection('live')">直播间</a>
+        </div>
+
+        <div id="articles" class="section active">
+            <h2>帖子发布</h2>
+            <div id="article-list"></div>
+        </div>
+
+        <div id="games" class="section">
+            <h2>游戏分享</h2>
+            <p>这里是游戏分享内容。</p>
+        </div>
+
+        <div id="live" class="section">
+            <h2>直播间</h2>
+            <div id="live-room"></div>
+        </div>
+    </div>
+</div>
+
+    <script src="/common.js"></script>
+    <script>
+        // 显示对应的栏目
+        function showSection(sectionId) {
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.remove('active');
+            });
+            document.getElementById(sectionId).classList.add('active');
+        }
+
+        // 从 URL 中解析 uid
+        function getUidFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('uid') || '0';
+        }
+
+        function setAvatarSrc(uid) {
+            const img = document.getElementById('userAvatar');
+            // 加时间戳避免浏览器缓存旧头像
+            img.src = `/api/user/userCover/${encodeURIComponent(uid)}?t=${Date.now()}`;
+            img.onerror = () => {
+                // 头像不存在时给一个灰底占位
+                img.removeAttribute('src');
+            };
+        }
+
+        async function fetchUserInfo() {
+            const uid = getUidFromUrl();
+            if (!uid) return;
+
+            try {
+                const data = await apiFetch(`/api/user/userInfo/${encodeURIComponent(uid)}`);
+                const userName = data.user_name ?? '';
+                const userId = data.user_id ?? uid;
+
+                document.getElementById('user-info').innerHTML = `
+                <div class="profile-label">用户名</div><div>${userName || '匿名'}</div>
+                <div class="profile-label">用户ID</div><div>${userId}</div>
+            `;
+
+                setAvatarSrc(userId);
+            } catch (error) {
+                document.getElementById('user-info').innerHTML = `<div style="grid-column:1/-1;color:#d9534f">获取用户信息失败：${error.message}</div>`;
+            }
+        }
+
+        function bindAvatarUpload() {
+            const uid = getUidFromUrl();
+            const avatarWrap = document.getElementById('avatarWrap');
+            const input = document.getElementById('avatarFileInput');
+
+            avatarWrap.addEventListener('click', () => {
+                input.value = '';
+                input.click();
+            });
+
+            input.addEventListener('change', async () => {
+                const file = input.files && input.files[0];
+                if (!file) return;
+
+                const form = new FormData();
+                form.append('cover', file);
+
+                try {
+                    // 依赖 common.js 的 apiFetch：需要能发送 FormData
+                    await apiFetch(`/api/user/editUserCover`, {
+                        method: 'POST',
+                        body: form
+                    });
+
+                    // 上传成功后刷新头像
+                    setAvatarSrc(uid);
+                } catch (e) {
+                    alert(`上传头像失败：${e.message || e}`);
+                }
+            });
+        }
+
+        async function resolveUserName(authorId) {
+            if (authorId === null || typeof authorId === 'undefined' || authorId === '') return '匿名';
+            try {
+                const resp = await apiFetch(`/api/user/userInfo/${encodeURIComponent(authorId)}`);
+                const info = resp?.data ?? resp?.user ?? resp;
+                const name = info?.user_name || info?.UserName || info?.username || info?.nick || info?.nickname || info?.name;
+                return name ? String(name) : `用户${authorId}`;
+            } catch (e) {
+                return `用户${authorId}`;
+            }
+        }
+
+        // 获取帖子列表
+        async function fetchUserArticles() {
+            const uid = getUidFromUrl();
+            try {
+
+                const data = await apiFetch(`/api/article/userArticleList/${uid}/1`);
+                const articles = data.articles || [];
+                const container = document.getElementById('article-list');
+                if (articles.length === 0) {
+                    container.innerHTML = '<div style="padding:12px;color:#666">暂无帖子</div>';
+                    return;
+                }
+
+                container.innerHTML = '';
+                articles.forEach(article => {
+                    const card = document.createElement('div');
+                    card.className = 'post-card';
+                    card.style.cursor = 'pointer';
+                    card.addEventListener('click', () => {
+                        location.href = `/articleDetail?id=${article.id}`;
+                    });
+
+                    const header = document.createElement('div');
+                    header.className = 'post-header';
+
+    // 异步获取用户名
+                    resolveUserName(article.author).then((resolvedName) => {
+                        header.innerHTML = `
+            <div class="avatar">${(resolvedName || 'U')[0]}</div>
+            <div class="user-name">${resolvedName || '匿名'}</div>
+        `;
+                    });
+
+                    card.appendChild(header);
+
+                    const title = document.createElement('div');
+                    title.className = 'post-title';
+                    title.textContent = article.title || '(无标题)';
+                    card.appendChild(title);
+
+                    const summaryRow = document.createElement('div');
+                    summaryRow.className = 'post-summary-row';
+                    const summary = document.createElement('div');
+                    summary.className = 'post-summary';
+                    summary.textContent = (article.summary || '').slice(0, 60);
+                    summaryRow.appendChild(summary);
+
+                    const thumbWrap = document.createElement('div');
+                    thumbWrap.className = 'post-thumb';
+                    if (article.url) {
+                        const img = document.createElement('img');
+                        img.src = `/api/article/articlePictures/${article.id}/${encodeURIComponent(article.url)}`;
+                        img.alt = 'thumb';
+                        img.className = 'thumb-multi';
+                        thumbWrap.appendChild(img);
+                    }
+                    summaryRow.appendChild(thumbWrap);
+                    card.appendChild(summaryRow);
+
+                    const meta = document.createElement('div');
+                    meta.className = 'post-meta-row';
+                    meta.innerHTML = `
+                    <div class="meta-left">
+                        <span class="meta-section">专区 ${article.section || 1}</span>
+                        <span class="meta-time">${article.time || ''}</span>
+                    </div>
+                    <div class="meta-right">
+                        <span>👍 ${article.like_num || 0}</span>
+                        <span style="margin-left:12px">💬 ${article.comment_num || 0}</span>
+                    </div>
+                `;
+                    card.appendChild(meta);
+
+                    container.appendChild(card);
+                });
+            } catch (error) {
+                console.error('获取帖子列表失败:', error.message);
+                document.getElementById('article-list').innerHTML = `<div style="padding:12px;color:#d9534f">${error.message}</div>`;
+            }
+        }
+
+        // 获取直播间信息
+        async function fetchLiveRoom() {
+            const uid = getUidFromUrl();
+            if (!uid) {
+                console.error('未找到用户 UID');
+                return;
+            }
+            try {
+                const data = await apiFetch(`/api/live/UserLiveRoom/${uid}`);
+                const container = document.getElementById('live-room');
+
+                if (!data || data.state === 0) {
+                    container.innerHTML = '<div style="padding:12px;color:#666">未创建直播间</div>';
+                    return;
+                }
+
+                // 生成封面图片 URL
+                const coverUrl = data.cover
+                    ? `/api/live/CoverPicture/${encodeURIComponent(data.room_id)}/${encodeURIComponent(data.cover)}`
+                    : '';
+
+                // 渲染直播间信息
+                container.innerHTML = `
+                <div class="room-card" style="width: 300px; margin: 0 auto; border: 1px solid #ddd; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">
+                    <div class="cover-image" style="width: 100%; height: 180px; background-color: #f3f4f6; background-image: url('${coverUrl}'); background-size: cover; background-position: center;">
+                        ${!coverUrl ? '<span style="color:#999; display: flex; align-items: center; justify-content: center; height: 100%;">暂无封面</span>' : ''}
+                    </div>
+                    <div class="room-info" style="padding: 12px; font-family: Arial, sans-serif;">
+                        <div class="room-title" style="font-size: 16px; font-weight: bold; color: #111827; margin-bottom: 8px;" title="直播间标题">${data.title || '无标题'}</div>
+                        <div class="room-meta" style="font-size: 14px; color: #6b7280; margin-bottom: 4px;">主播: <span style="font-weight: bold; color: #2563eb;">${data.user_name || '未知主播'}</span></div>
+                        <div class="room-meta" style="font-size: 14px; color: #6b7280; margin-bottom: 4px;">状态: <span style="color:${data.state === 2 ? '#28a745' : '#6c757d'};">${getLiveState(data.state)}</span></div>
+                        <div class="room-meta" style="font-size: 14px; color: #6b7280; margin-bottom: 4px;">观众人数: <span style="color: #007bff;">${data.current_people_num || 0}</span></div>
+                        <div class="room-meta desc" style="font-size: 14px; color: #6b7280; margin-top: 8px;">简介: ${data.description || '暂无描述'}</div>
+                        ${data.state === 2 ? `<button onclick="enterLiveRoom(${data.room_id})" style="margin-top: 12px; padding: 8px 12px; background-color: #2563eb; color: #fff; border: none; border-radius: 4px; cursor: pointer;">进入直播间</button>` : ''}
+                    </div>
+                </div>
+            `;
+            } catch (error) {
+                console.error('获取直播间信息失败:', error.message);
+                document.getElementById('live-room').innerHTML = `<div style="padding:12px;color:#d9534f">${error.message}</div>`;
+            }
+        }
+
+        // 进入直播间
+        function enterLiveRoom(roomId) {
+            window.location.href = `/liveRoom?roomId=${roomId}`;
+        }
+
+        // 获取直播间状态描述
+        function getLiveState(state) {
+            switch (state) {
+                case 0:return '主播未创建直播间';
+                case 1: return '未开播';
+                case 2: return '已开播';
+                default: return '未知状态';
+            }
+        }
+
+        // 初始化页面
+        async function initPage() {
+            await loadHeader('#header-container');
+            await fetchUserInfo();
+            bindAvatarUpload();
+
+            // 你原来的初始化
+            fetchUserArticles();
+            fetchLiveRoom();
+        }
+
+        initPage();
+    </script>
+</body>
+</html>

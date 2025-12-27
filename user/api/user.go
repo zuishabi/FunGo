@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"fungo/common/jwts"
+	"fungo/common/middleware"
 	"fungo/user/api/internal/config"
 	"fungo/user/api/internal/handler"
 	"fungo/user/api/internal/svc"
@@ -22,8 +23,10 @@ func main() {
 
 	var c config.Config
 	conf.MustLoad(*configFile, &c)
+	c.MaxBytes = 10485760
 
 	server := rest.MustNewServer(c.RestConf, rest.WithUnauthorizedCallback(jwts.JwtUnauthorizedResult))
+	server.Use(middleware.OptionalJWT(c.Auth.AccessSecret))
 	defer server.Stop()
 
 	ctx := svc.NewServiceContext(c)

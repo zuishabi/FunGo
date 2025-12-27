@@ -1,3 +1,4 @@
+<!-- file: `statics/header.html` -->
 <header>
     <div class="logo">FunGo</div>
     <nav>
@@ -5,14 +6,19 @@
         <button id="nav-community">社区</button>
         <button id="nav-game">游戏中心</button>
         <button id="nav-live">直播广场</button>
-
     </nav>
     <div id="auth-area">
         <a id="login-link" class="auth-btn" href="/login">登录</a>
         <a id="register-link" class="auth-btn" href="/register" style="margin-left:8px">注册</a>
 
         <div id="avatar-wrap" class="hidden" aria-haspopup="true" style="display:inline-block;margin-left:8px">
-            <div id="avatar" title="用户" style="display:inline-block;cursor:pointer">U</div>
+            <!-- 增加头像图片；默认隐藏，加载成功后显示 -->
+            <img id="avatar-img" alt="用户头像"
+                 style="display:none;width:28px;height:28px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px" />
+
+            <!-- 继续保留原来的字母占位作为 fallback -->
+            <div id="avatar" title="用户" style="display:inline-block;cursor:pointer;vertical-align:middle">U</div>
+
             <div id="avatar-menu" role="menu" style="display:none;position:absolute;background:#fff;border:1px solid #ddd;padding:8px">
                 <a id="menu-profile" href="/user">个人主页</a>
                 <div id="menu-logout" role="button" style="cursor:pointer;margin-top:6px">退出登录</div>

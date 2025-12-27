@@ -92,7 +92,6 @@ func initialize(cli *redis.Client, db *gorm.DB) {
 		}
 		cli.ZAdd(ctx, "hot-article-list", z...)
 	}
-	fmt.Println("初始化redis成功")
 }
 
 type LookNumAggregator struct {
@@ -206,7 +205,6 @@ func (a *LookNumAggregator) aggregateOnce(ctx context.Context) error {
 	return nil
 }
 
-// LikeAggregator
 type LikeAggregator struct {
 	svcCtx   *ServiceContext
 	interval time.Duration

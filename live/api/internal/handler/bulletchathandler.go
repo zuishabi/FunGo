@@ -4,6 +4,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -34,12 +35,19 @@ func BulletChatHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		// 将房间信息写入BulletChatServer中
 		messageChan := svcCtx.BulletChatServer.CreateConn(req.RoomID)
+		// 将当前的在线人数增加1
+		svcCtx.RedisClient.HIncrBy(context.Background(), fmt.Sprintf(
+			"live-room-%d", req.RoomID), "current_people", 1,
+		)
 
 		l := logic.NewBulletChatLogic(r.Context(), svcCtx, messageChan)
 		threading.GoSafeCtx(r.Context(), func() {
 			defer close(client)
 			defer func() {
 				svcCtx.BulletChatServer.DeleteConn(req.RoomID, messageChan)
+				svcCtx.RedisClient.HIncrBy(context.Background(),
+					fmt.Sprintf("live-room-%d", req.RoomID), "current_people", -1,
+				)
 			}()
 
 			err := l.BulletChat(client)

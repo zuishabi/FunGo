@@ -28,6 +28,13 @@ type (
 	LiveRoomListRsp {
 		LiveInfos []LiveInfo `json:"live_infos"`
 	}
+	UserLiveRoomReq {
+		UID uint64 `path:"uid"`
+	}
+	UserLiveRoomRsp {
+		State uint8 `json:"state"` // 0:未创建直播间，1：未开播，2：已开播
+		LiveInfo
+	}
 )
 
 @server (
@@ -45,6 +52,9 @@ service Live {
 
 	@handler LiveRoomListReq
 	get /LiveRoomList/:page (LiveRoomListReq) returns (LiveRoomListRsp)
+
+	@handler UserLiveRoom
+	get /UserLiveRoom/:uid (UserLiveRoomReq) returns (UserLiveRoomRsp)
 }
 
 type (

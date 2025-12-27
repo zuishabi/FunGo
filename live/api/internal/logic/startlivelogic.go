@@ -94,6 +94,7 @@ func (l *StartLiveLogic) StartLive() error {
 		"description", roomInfo.Description,
 		"user_id", uid,
 		"cover", roomInfo.Cover,
+		"current_people", 0,
 	)
 
 	return nil

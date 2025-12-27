@@ -38,7 +38,7 @@ func (l *LiveRoomListReqLogic) LiveRoomListReq(req *types.LiveRoomListReq) (resp
 	for i, v := range res {
 		roomID, _ := strconv.Atoi(v)
 		result, _ := l.svcCtx.RedisClient.HMGet(context.Background(), fmt.Sprintf("live-room-%d", roomID),
-			"room_id", "title", "description", "user_id", "cover").Result()
+			"room_id", "title", "description", "user_id", "cover", "current_people").Result()
 		liveInfos[i].RoomID = uint64(roomID)
 		liveInfos[i].Title = result[1].(string)
 		liveInfos[i].Description = result[2].(string)
@@ -47,6 +47,7 @@ func (l *LiveRoomListReqLogic) LiveRoomListReq(req *types.LiveRoomListReq) (resp
 		liveInfos[i].Cover = result[4].(string)
 		userInfo, _ := l.svcCtx.UserRPC.GetUserInfo(context.Background(), &user.UserInfoReq{Uid: liveInfos[i].UserID})
 		liveInfos[i].UserName = userInfo.UserName
+		liveInfos[i].CurrentPeopleNum, _ = strconv.Atoi(result[5].(string))
 	}
 
 	return &types.LiveRoomListRsp{LiveInfos: liveInfos}, nil

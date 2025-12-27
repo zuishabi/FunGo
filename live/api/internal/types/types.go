@@ -59,3 +59,12 @@ type SendBulletChat struct {
 	Content string `json:"content"`
 	RoomID  uint64 `json:"room_id"`
 }
+
+type UserLiveRoomReq struct {
+	UID uint64 `path:"uid"`
+}
+
+type UserLiveRoomRsp struct {
+	State uint8 `json:"state"` // 0:未创建直播间，1：未开播，2：已开播
+	LiveInfo
+}

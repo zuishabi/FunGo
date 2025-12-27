@@ -26,3 +26,4 @@ go.work.sum
 /articles/api/uploads
 /game/uploads
 live/api/uploads
+/user/api/uploads

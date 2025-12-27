@@ -5,7 +5,6 @@ package logic
 
 import (
 	"context"
-	"encoding/json"
 	"fungo/user/api/internal/svc"
 	"fungo/user/api/internal/types"
 
@@ -27,7 +26,7 @@ func NewSelfInfoLogic(ctx context.Context, svcCtx *svc.ServiceContext) *SelfInfo
 }
 
 func (l *SelfInfoLogic) SelfInfo() (resp *types.SelfInfoRsp, err error) {
-	uid, _ := l.ctx.Value("user_id").(json.Number).Int64()
+	uid, _ := l.ctx.Value("user_id").(uint64)
 	userName := l.ctx.Value("user_name").(string)
 	return &types.SelfInfoRsp{
 		UserName: userName,

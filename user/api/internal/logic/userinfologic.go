@@ -5,6 +5,7 @@ package logic
 
 import (
 	"context"
+	"errors"
 	"fungo/user/api/internal/svc"
 	"fungo/user/api/internal/types"
 	"fungo/user/model"
@@ -27,6 +28,13 @@ func NewUserInfoLogic(ctx context.Context, svcCtx *svc.ServiceContext) *UserInfo
 }
 
 func (l *UserInfoLogic) UserInfo(req *types.UserInfoReq) (resp *types.UserInfoRsp, err error) {
+	if req.UID == 0 {
+		ok := true
+		req.UID, ok = l.ctx.Value("user_id").(uint64)
+		if !ok {
+			return nil, errors.New("解析用户id错误")
+		}
+	}
 	user := &model.User{}
 	l.svcCtx.Db.Where("id = ?", req.UID).First(&user)
 

@@ -31,6 +31,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 			{
 				Method:  http.MethodGet,
+				Path:    "/UserLiveRoom/:uid",
+				Handler: UserLiveRoomHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
 				Path:    "/liveRoom/:room_id",
 				Handler: LiveRoomHandler(serverCtx),
 			},

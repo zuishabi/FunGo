@@ -17,6 +17,9 @@ type (
 		UserName string `json:"user_name"`
 		UserID   uint64 `json:"user_id"`
 	}
+	UserCoverReq {
+		UserID uint64 `path:"user_id"`
+	}
 )
 
 @server (
@@ -31,6 +34,9 @@ service User {
 
 	@handler userInfo
 	get /userInfo/:uid (UserInfoReq) returns (UserInfoRsp)
+
+	@handler userCover
+	get /userCover/:user_id (UserCoverReq)
 }
 
 type (
@@ -47,5 +53,8 @@ type (
 service User {
 	@handler selfInfo
 	get /selfInfo returns (SelfInfoRsp)
+
+	@handler editUserCover
+	post /editUserCover
 }
 

@@ -16,8 +16,28 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 		[]rest.Route{
 			{
 				Method:  http.MethodPost,
+				Path:    "/editSignature",
+				Handler: editSignatureHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/getSignature/:id",
+				Handler: getSignatureHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/getUserAvatar/:id",
+				Handler: getUserAvatarHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
 				Path:    "/login",
 				Handler: loginHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/opLogin",
+				Handler: opLoginHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodPost,
@@ -25,9 +45,9 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: registerHandler(serverCtx),
 			},
 			{
-				Method:  http.MethodGet,
-				Path:    "/userCover/:user_id",
-				Handler: userCoverHandler(serverCtx),
+				Method:  http.MethodPost,
+				Path:    "/uploadUserAvatar",
+				Handler: uploadUserAvatarHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodGet,
@@ -40,11 +60,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		[]rest.Route{
-			{
-				Method:  http.MethodPost,
-				Path:    "/editUserCover",
-				Handler: editUserCoverHandler(serverCtx),
-			},
 			{
 				Method:  http.MethodGet,
 				Path:    "/selfInfo",

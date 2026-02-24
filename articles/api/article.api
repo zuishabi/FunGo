@@ -64,6 +64,13 @@ type (
 		ID  uint64 `path:"id"`
 		MD5 string `path:"md5"`
 	}
+	ArticleSearchReq {
+		KeyWords string `path:"key_words"`
+		Page     int    `path:"page"`
+	}
+	ArticleSearchRsp {
+		Articles []ArticleInfo `json:"articles"`
+	}
 )
 
 @server (
@@ -84,6 +91,9 @@ service article {
 
 	@handler ArticleDetail
 	get /articleDetail/:id (ArticleDetailReq) returns (ArticleDetailRsp)
+
+	@handler ArticleSearch
+	get /articleSearch/:key_words/:page (ArticleSearchReq) returns (ArticleSearchRsp)
 }
 
 type (

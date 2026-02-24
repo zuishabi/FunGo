@@ -3,6 +3,22 @@
 
 package types
 
+type EditSignatureReq struct {
+	Content string `json:"content"`
+}
+
+type GetSignatureReq struct {
+	ID uint64 `path:"id"`
+}
+
+type GetSignatureRsp struct {
+	Content string `json:"content"`
+}
+
+type GetUserAvatarReq struct {
+	ID uint64 `path:"id"`
+}
+
 type LoginReq struct {
 	UserName string `json:"user_name"`
 	Password string `json:"password"`
@@ -10,6 +26,11 @@ type LoginReq struct {
 
 type LoginRsp struct {
 	Token string `json:"token"`
+}
+
+type OpLoginReq struct {
+	UserName string `json:"user_name"`
+	Password string `json:"password"`
 }
 
 type RegisterReq struct {

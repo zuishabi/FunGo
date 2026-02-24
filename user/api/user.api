@@ -20,6 +20,22 @@ type (
 	UserCoverReq {
 		UserID uint64 `path:"user_id"`
 	}
+	GetUserAvatarReq {
+		ID uint64 `path:"id"`
+	}
+	EditSignatureReq {
+		Content string `json:"content"`
+	}
+	GetSignatureReq {
+		ID uint64 `path:"id"`
+	}
+	GetSignatureRsp {
+		Content string `json:"content"`
+	}
+	OpLoginReq {
+		UserName string `json:"user_name"`
+		Password string `json:"password"`
+	}
 )
 
 @server (
@@ -35,8 +51,20 @@ service User {
 	@handler userInfo
 	get /userInfo/:uid (UserInfoReq) returns (UserInfoRsp)
 
-	@handler userCover
-	get /userCover/:user_id (UserCoverReq)
+	@handler getUserAvatar
+	get /getUserAvatar/:id (GetUserAvatarReq)
+
+	@handler uploadUserAvatar
+	post /uploadUserAvatar
+
+	@handler editSignature
+	post /editSignature (EditSignatureReq)
+
+	@handler getSignature
+	get /getSignature/:id (GetSignatureReq) returns (GetSignatureRsp)
+
+	@handler opLogin
+	post /opLogin (OpLoginReq) returns (LoginRsp)
 }
 
 type (
@@ -53,8 +81,5 @@ type (
 service User {
 	@handler selfInfo
 	get /selfInfo returns (SelfInfoRsp)
-
-	@handler editUserCover
-	post /editUserCover
 }
 

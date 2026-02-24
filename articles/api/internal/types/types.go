@@ -36,6 +36,15 @@ type ArticleListRsp struct {
 	Articles []ArticleInfo `json:"articles"`
 }
 
+type ArticleSearchReq struct {
+	KeyWords string `path:"key_words"`
+	Page     int    `path:"page"`
+}
+
+type ArticleSearchRsp struct {
+	Articles []ArticleInfo `json:"articles"`
+}
+
 type CommentInfo struct {
 	ID        uint64 `json:"id"`
 	UID       uint64 `json:"uid"`

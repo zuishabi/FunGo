@@ -175,6 +175,8 @@ func CreateArticleHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		tx.Commit()
 
+		// 再将数据写入到elasticsearch中
+
 		response.Response(r, w, nil, nil)
 	}
 }

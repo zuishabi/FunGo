@@ -14,4 +14,5 @@ type Config struct {
 	Mysql struct {
 		DataSource string
 	}
+	UserStaticPath string
 }

@@ -1,0 +1,122 @@
+type (
+	GetAnimateReq {
+		ID   uint64 `path:"id"`
+		NID  int    `path:"nid"`
+		Name string `path:"name"`
+	}
+	AnimateItem {
+		ID          uint64   `json:"id"`
+		Name        string   `json:"name"`
+		Description string   `json:"description"`
+		Year        string   `json:"year"`
+		Tags        []string `json:"tags"`
+		State       string   `json:"state"`
+		Num         int      `json:"num"`
+	}
+	GetRecommendAnimateListRsp {
+		AnimateItems []AnimateItem `json:"animate_items"`
+	}
+	GetTodayUpdatedAnimateListRsp {
+		AnimateItems []AnimateItem `json:"animate_items"`
+	}
+	GetAnimateDetailReq {
+		ID uint64 `path:"id"`
+	}
+	GetAnimateDetailRsp {
+		Item AnimateItem `json:"item"`
+	}
+	GetAnimateMagnetReq {
+		ID  uint64 `path:"id"`
+		NID int    `path:"nid"`
+	}
+	GetAnimateMagnetRsp {
+		Link string `json:"link"`
+	}
+	GetSubscribeAndFavoriteReq {
+		ID uint64 `path:"id"`
+	}
+	GetSubscribeAndFavoriteRsp {
+		Subscribe bool `json:"subscribe"`
+		Favorite  bool `json:"favorite"`
+	}
+	SubscribeReq {
+		id uint64 `path:"id"`
+	}
+	SubscribeRsp {
+		Subscribe bool `json:"subscribe"`
+	}
+	FavoriteReq {
+		id uint64 `path:"id"`
+	}
+	FavoriteRsp {
+		Favorite bool `json:"favorite"`
+	}
+	GetSubscribesRsp {
+		List []uint64 `json:"list"`
+	}
+	GetFavoritesRsp {
+		List []uint64 `json:"list"`
+	}
+	GetFavoritesReq {
+		Page int `path:"page"`
+	}
+	SubInfo {
+		ID          uint64 `json:"id"`
+		Name        string `json:"name"`
+		Time        string `json:"time"`
+		Version     int    `json:"version"`
+		Description string `json:"description"`
+	}
+	GetSubscribeInfoRsp {
+		Infos []SubInfo `json:"infos"`
+	}
+	GetAllAnimtesReq {
+		Page int `path:"page"`
+	}
+	GetAllAnimatesRsp {
+		maxPage int      `json:"max_page"`
+		List    []uint64 `json:"list"`
+	}
+)
+
+@server (
+	prefix: /api/animate
+)
+service Animate {
+	@handler getAnimate
+	get /getAnimate/:id/:nid/:name (GetAnimateReq)
+
+	@handler recommendAnimateList
+	get /getRecommendAnimateList returns (GetRecommendAnimateListRsp)
+
+	@handler todayUpdatedAnimateList
+	get /getTodayUpdatedAnimateList returns (GetTodayUpdatedAnimateListRsp)
+
+	@handler getAnimateDetail
+	get /getAnimateDetail/:id (GetAnimateDetailReq) returns (GetAnimateDetailRsp)
+
+	@handler uploadAnimate
+	post /uploadAnimate
+
+	@handler querySubscribeAndFavorite
+	get /querySubscribeAndFavorite/:id (GetSubscribeAndFavoriteReq) returns (GetSubscribeAndFavoriteRsp)
+
+	@handler subscribe
+	get /subscribe/:id (SubscribeReq) returns (SubscribeRsp)
+
+	@handler favorite
+	get /favorite/:id (FavoriteReq) returns (FavoriteRsp)
+
+	@handler getSubscribes
+	get /getSubscribes returns (GetSubscribesRsp)
+
+	@handler getSubscribeInfo
+	get /getSubscribeInfo returns (GetSubscribeInfoRsp)
+
+	@handler getFavorites
+	get /getFavorites/:page (GetFavoritesReq) returns (GetFavoritesRsp)
+
+	@handler getAllAnimates
+	get /getAllAnimates/:page (GetAllAnimtesReq) returns (GetAllAnimatesRsp)
+}
+

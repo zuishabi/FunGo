@@ -6,25 +6,27 @@ package logic
 import (
 	"context"
 
-	"fungo/user/api/internal/svc"
+	"fungo/animate/api/internal/svc"
+	"fungo/animate/api/internal/types"
+
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-type EditUserCoverLogic struct {
+type GetAnimateLogic struct {
 	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
 
-func NewEditUserCoverLogic(ctx context.Context, svcCtx *svc.ServiceContext) *EditUserCoverLogic {
-	return &EditUserCoverLogic{
+func NewGetAnimateLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetAnimateLogic {
+	return &GetAnimateLogic{
 		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *EditUserCoverLogic) EditUserCover() error {
+func (l *GetAnimateLogic) GetAnimate(req *types.GetAnimateReq) error {
 	// todo: add your logic here and delete this line
 
 	return nil

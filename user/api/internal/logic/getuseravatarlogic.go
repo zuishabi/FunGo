@@ -12,20 +12,22 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-type UserCoverLogic struct {
+type GetUserAvatarLogic struct {
 	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
 
-func NewUserCoverLogic(ctx context.Context, svcCtx *svc.ServiceContext) *UserCoverLogic {
-	return &UserCoverLogic{
+func NewGetUserAvatarLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetUserAvatarLogic {
+	return &GetUserAvatarLogic{
 		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *UserCoverLogic) UserCover(req *types.UserCoverReq) error {
+func (l *GetUserAvatarLogic) GetUserAvatar(req *types.GetUserAvatarReq) error {
+	// todo: add your logic here and delete this line
+
 	return nil
 }

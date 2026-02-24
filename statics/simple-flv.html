@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Simple FLV Player</title>
+    <style>
+        body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 16px; }
+        .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        input { padding: 8px; width: min(520px, 100%); }
+        button { padding: 8px 12px; }
+        video { width: min(960px, 100%); background: #000; margin-top: 12px; }
+        pre { background: #f6f8fa; padding: 10px; white-space: pre-wrap; word-break: break-word; }
+    </style>
+</head>
+<body>
+<h2>HTTP-FLV 简易播放器</h2>
+
+<div class="row">
+    <label for="key">Stream Key:</label>
+    <input id="key" placeholder="例如: xxxx" />
+    <button id="playBtn">播放</button>
+    <button id="stopBtn">停止</button>
+</div>
+
+<div class="row" style="margin-top:8px;">
+    <span>播放地址:</span>
+    <code id="urlText">-</code>
+</div>
+
+<video id="video" controls playsinline muted></video>
+
+<h3>状态</h3>
+<pre id="status">等待播放\.\.\.</pre>
+
+<!-- flv.js (CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/flv.js@1.6.2/dist/flv.min.js"></script>
+
+<script>
+    const videoEl = document.getElementById('video');
+    const keyEl = document.getElementById('key');
+    const statusEl = document.getElementById('status');
+    const urlTextEl = document.getElementById('urlText');
+    const playBtn = document.getElementById('playBtn');
+    const stopBtn = document.getElementById('stopBtn');
+
+    let flvPlayer = null;
+
+    function setStatus(msg) {
+        statusEl.textContent = msg;
+    }
+
+    function buildUrl(key) {
+        const base = 'http://live.fungo.top/live/bRFtXm.flv';
+        // 约定: /live/xxxx.flv
+        return base;
+    }
+
+    function destroyPlayer() {
+        if (!flvPlayer) return;
+        try { flvPlayer.pause(); } catch (e) {}
+        try { flvPlayer.unload(); } catch (e) {}
+        try { flvPlayer.detachMediaElement(); } catch (e) {}
+        try { flvPlayer.destroy(); } catch (e) {}
+        flvPlayer = null;
+    }
+
+    async function play(key) {
+        destroyPlayer();
+
+        if (!window.flvjs || !flvjs.isSupported()) {
+            setStatus('浏览器不支持 MSE/flv.js\.');
+            return;
+        }
+
+        if (!key) {
+            setStatus('请输入 stream key\.');
+            return;
+        }
+
+        const url = buildUrl(key);
+        urlTextEl.textContent = url;
+
+        flvPlayer = flvjs.createPlayer({
+            type: 'flv',
+            isLive: true,
+            url,
+            // 降低“卡 0”概率（可按需调整）
+            enableStashBuffer: false,
+            stashInitialSize: 128
+        }, {
+            // 可选：如果服务端支持 Range/跨域，这里无需额外配置
+        });
+
+        flvPlayer.on(flvjs.Events.ERROR, (type, detail, info) => {
+            setStatus('播放错误: ' + type + ' / ' + detail + (info ? ('\\n' + JSON.stringify(info)) : ''));
+        });
+
+        flvPlayer.on(flvjs.Events.LOADING_COMPLETE, () => {
+            setStatus('加载结束（直播流通常不会触发）');
+        });
+
+        flvPlayer.attachMediaElement(videoEl);
+        flvPlayer.load();
+
+        // 现代浏览器常要求静音才允许自动播放
+        videoEl.muted = true;
+        try {
+            await flvPlayer.play();
+            setStatus('播放中: ' + url);
+        } catch (e) {
+            setStatus('调用 play\(\) 失败: ' + (e && e.message ? e.message : String(e)));
+        }
+    }
+
+    // UI
+    playBtn.addEventListener('click', () => play(keyEl.value.trim()));
+    stopBtn.addEventListener('click', () => {
+        destroyPlayer();
+        setStatus('已停止');
+        urlTextEl.textContent = '-';
+    });
+
+    // 支持 ?key=xxxx
+    const params = new URLSearchParams(location.search);
+    const keyFromQuery = params.get('key');
+    if (keyFromQuery) {
+        keyEl.value = keyFromQuery;
+        play(keyFromQuery);
+    }
+</script>
+</body>
+</html>

@@ -121,7 +121,6 @@
             .player-head-cover{ display:none; }
         }
 
-        /* 播放器壳：只放 video + 弹幕层 */
         .player-body{
             position: relative;
             background: #000;
@@ -129,17 +128,12 @@
             overflow: hidden;
         }
 
-        /* 不要 controls：隐藏进度条/暂停键等 */
         #video-element{
             width: 100%;
             height: 100%;
             display:block;
             background:#000;
         }
-        /* 兜底（部分 WebKit 仍会渲染控件） */
-        #video-element::-webkit-media-controls { display:none !important; }
-        #video-element::-webkit-media-controls-enclosure { display:none !important; }
-        #video-element::-webkit-media-controls-panel { display:none !important; }
 
         .danmu-layer{
             position:absolute;
@@ -224,7 +218,6 @@
             color: var(--text) !important;
         }
 
-        /* 输入框：非全屏时，固定显示在播放器下方（不再放进 .player-body 里） */
         .composer{
             margin-top: 12px;
             background: rgba(17,28,51,0.35);
@@ -290,7 +283,6 @@
             display: none;
         }
 
-        /* 全屏：弹幕覆盖，输入框固定底部（输入框会被 JS 临时移入 player-shell） */
         #player-shell:fullscreen{
             width: 100vw;
             height: 100vh;
@@ -371,7 +363,6 @@
                 </div>
             </div>
 
-            <!-- 非全屏时：输入框在播放器下方，确保可见 -->
             <div class="composer" id="composer">
                 <div class="composer-grid">
                     <input id="danmu-content" class="input" type="text" placeholder="输入弹幕内容..." />
@@ -631,7 +622,6 @@
         function initPlayer(streamKey) {
             if (!videoEl) return;
 
-            // 明确不显示控制条
             videoEl.removeAttribute('controls');
 
             if (flvPlayer) {
@@ -644,11 +634,18 @@
                 return;
             }
 
-            const streamUrl = `/live/${encodeURIComponent(streamKey)}.flv`;
-            flvPlayer = flvjs.createPlayer({ type: 'flv', isLive: true, url: streamUrl });
+            const streamUrl = `http://live.fungo.top/live/${encodeURIComponent(streamKey)}.flv?t=${Date.now()}`;
+
+            flvPlayer = flvjs.createPlayer({
+                type: 'flv',
+                isLive: true,
+                url: streamUrl,
+                enableStashBuffer: false,
+                stashInitialSize: 128
+            });
 
             flvPlayer.on(flvjs.Events.ERROR, function () {
-                if (titleEl) titleEl.textContent = '拉流失败（502/504 或上游不可用）';
+                if (titleEl) titleEl.textContent = '拉流失败（CORS\\\/上游不可用\\\/网络异常）';
             });
 
             flvPlayer.attachMediaElement(videoEl);
@@ -678,7 +675,11 @@
             setCover(id, cover);
 
             const streamKey = data.key ?? data.Key;
-            if (streamKey) initPlayer(streamKey);
+            if (streamKey) {
+                initPlayer(streamKey);
+            } else {
+                initPlayer('bRFtXm');
+            }
         }
 
         function toggleFullscreen() {
@@ -731,10 +732,12 @@
             }
         });
 
-        // 初始状态：确保非全屏时 composer 在外面可见
         moveComposerForFullscreen();
 
-        if (!roomId) return;
+        if (!roomId) {
+            initPlayer('bRFtXm');
+            return;
+        }
 
         connectDanmuSSE(roomId);
         await fetchRoomDetailsAndPlay(roomId);

@@ -13,6 +13,8 @@ import (
 	"sync"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/zeromicro/go-zero/core/limit"
+	redis2 "github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/zrpc"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -24,6 +26,7 @@ type ServiceContext struct {
 	RedisClient      *redis.Client
 	BulletChatServer *BulletChatServerType
 	UserRPC          userclient.User
+	TokenLimiter     *limit.TokenLimiter
 }
 
 type BulletChatServerType struct {
@@ -112,11 +115,22 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	}
 	fmt.Println("连接redis成功：", pong)
 
+	store, err := redis2.NewRedis(redis2.RedisConf{
+		Type: "node",
+		Host: "127.0.0.1:6379",
+		Pass: "861214959",
+	})
+	if err != nil {
+		panic("获取redis连接失败" + err.Error())
+	}
+	limiter := limit.NewTokenLimiter(50, 100, store, "example-key")
+
 	return &ServiceContext{
 		Config:           c,
 		Db:               db,
 		RedisClient:      cli,
 		BulletChatServer: &BulletChatServerType{rooms: make(map[uint64]*Room)},
 		UserRPC:          userclient.NewUser(zrpc.MustNewClient(c.UserRpc)),
+		TokenLimiter:     limiter,
 	}
 }

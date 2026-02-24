@@ -21,9 +21,9 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	db, err := gorm.Open(mysql.Open(c.Mysql.DataSource), &gorm.Config{})
 	if err != nil {
 		panic(err)
-	} else {
-		fmt.Println("连接到数据库成功")
 	}
+
+	fmt.Println("连接到数据库成功")
 	_ = db.AutoMigrate(model.User{})
 	return &ServiceContext{
 		Config: c,

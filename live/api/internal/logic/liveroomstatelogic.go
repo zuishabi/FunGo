@@ -46,7 +46,7 @@ func (l *LiveRoomStateLogic) LiveRoomState() (resp *types.LiveRoomStateRsp, err 
 		key, _ := l.svcCtx.RedisClient.HGet(context.Background(), "room-key", strconv.Itoa(int(roomInfo.RoomID))).Result()
 		return &types.LiveRoomStateRsp{
 			State:  3,
-			IP:     "rtmp://112.17.30.188:30003/live",
+			IP:     "rtmp://183.136.201.72:35374/live",
 			Key:    key,
 			RoomID: roomInfo.RoomID,
 		}, nil

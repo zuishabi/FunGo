@@ -5,6 +5,7 @@ package logic
 
 import (
 	"context"
+	"errors"
 	"fungo/live/api/internal/svc"
 	"fungo/live/api/internal/types"
 
@@ -27,7 +28,12 @@ func NewSendBulletChatLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Se
 
 // SendBulletChat 发送弹幕
 func (l *SendBulletChatLogic) SendBulletChat(req *types.SendBulletChat) error {
-	username := l.ctx.Value("user_name").(string)
-	l.svcCtx.BulletChatServer.SendBulletChatMessage(req.RoomID, req.Content, username)
-	return nil
+	// 在这里进行限流检查
+	if l.svcCtx.TokenLimiter.Allow() {
+		username := l.ctx.Value("user_name").(string)
+		l.svcCtx.BulletChatServer.SendBulletChatMessage(req.RoomID, req.Content, username)
+		return nil
+	} else {
+		return errors.New("请求太快了")
+	}
 }

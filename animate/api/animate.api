@@ -74,8 +74,25 @@ type (
 		Page int `path:"page"`
 	}
 	GetAllAnimatesRsp {
-		maxPage int      `json:"max_page"`
+		MaxPage int      `json:"max_page"`
 		List    []uint64 `json:"list"`
+	}
+	SendWishReq {
+		Content string `json:"content"`
+	}
+	SendWishRsp {
+		Wish WishInfo `json:"wish"`
+	}
+	WishInfo {
+		ID        uint64 `json:"id"`
+		Content   string `json:"content"`
+		CreatedAt string `json:"created_at"`
+	}
+		GetWishRsp {
+		Wish WishInfo `json:"wish"`
+	}
+	GetWishListRsp {
+		Wishes []WishInfo `json:"wishes"`
 	}
 )
 
@@ -94,9 +111,6 @@ service Animate {
 
 	@handler getAnimateDetail
 	get /getAnimateDetail/:id (GetAnimateDetailReq) returns (GetAnimateDetailRsp)
-
-	@handler uploadAnimate
-	post /uploadAnimate
 
 	@handler querySubscribeAndFavorite
 	get /querySubscribeAndFavorite/:id (GetSubscribeAndFavoriteReq) returns (GetSubscribeAndFavoriteRsp)
@@ -118,5 +132,14 @@ service Animate {
 
 	@handler getAllAnimates
 	get /getAllAnimates/:page (GetAllAnimtesReq) returns (GetAllAnimatesRsp)
+
+	@handler sendWish
+	post /sendWish (SendWishReq) returns (SendWishRsp)
+
+	@handler getWishList
+	get /getWishList returns (GetWishListRsp)
+
+	@handler getWish
+	get /getWish returns (GetWishRsp)
 }
 

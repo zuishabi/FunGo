@@ -14,7 +14,7 @@ type AnimateList struct {
 
 type TodayUpdateList struct {
 	ID        uint64 `gorm:"primaryKey"`
-	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 type SubscribeFavoriteList struct {
@@ -30,4 +30,11 @@ type AnimateUpdateInfo struct {
 	Name        string
 	Description string
 	UpdatedAt   time.Time
+}
+
+type WishList struct {
+	ID        uint64 `gorm:"primaryKey"`
+	Content   string
+	UID       uint64 `gorm:"index"`
+	CreatedAt time.Time
 }

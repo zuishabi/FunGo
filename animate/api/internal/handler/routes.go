@@ -61,18 +61,28 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 			{
 				Method:  http.MethodGet,
+				Path:    "/getWish",
+				Handler: getWishHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/getWishList",
+				Handler: getWishListHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
 				Path:    "/querySubscribeAndFavorite/:id",
 				Handler: querySubscribeAndFavoriteHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/sendWish",
+				Handler: sendWishHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodGet,
 				Path:    "/subscribe/:id",
 				Handler: subscribeHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/uploadAnimate",
-				Handler: uploadAnimateHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/animate"),

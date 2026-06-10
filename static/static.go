@@ -6,5 +6,5 @@ func main() {
 	router := gin.Default()
 	router.Static("/static", "./resource")
 	router.Static("/.well-known/acme-challenge", "./.well-known/acme-challenge")
-	router.Run(":9999")
+	router.Run(":6666")
 }

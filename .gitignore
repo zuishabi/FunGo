@@ -28,3 +28,5 @@ go.work.sum
 live/api/uploads
 /user/api/uploads
 /animate/api/animates
+/static/resource/
+/static/.well-known/

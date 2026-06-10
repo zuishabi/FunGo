@@ -86,6 +86,22 @@ type GetTodayUpdatedAnimateListRsp struct {
 	AnimateItems []AnimateItem `json:"animate_items"`
 }
 
+type GetWishListRsp struct {
+	Wishes []WishInfo `json:"wishes"`
+}
+
+type GetWishRsp struct {
+	Wish WishInfo `json:"wish"`
+}
+
+type SendWishReq struct {
+	Content string `json:"content"`
+}
+
+type SendWishRsp struct {
+	Wish WishInfo `json:"wish"`
+}
+
 type SubInfo struct {
 	ID          uint64 `json:"id"`
 	Name        string `json:"name"`
@@ -100,4 +116,10 @@ type SubscribeReq struct {
 
 type SubscribeRsp struct {
 	Subscribe bool `json:"subscribe"`
+}
+
+type WishInfo struct {
+	ID        uint64 `json:"id"`
+	Content   string `json:"content"`
+	CreatedAt string `json:"created_at"`
 }

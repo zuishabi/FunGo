@@ -9,4 +9,4 @@ Auth:
 Mysql:
   DataSource: root:861214959@tcp(127.0.0.1:3306)/FunGo?charset=utf8mb4&parseTime=True&loc=Local
 
-AnimatePath: C:\animate
+AnimatePath: /home/zuishabi/FunGoStatics

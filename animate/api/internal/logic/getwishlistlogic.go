@@ -1,14 +1,14 @@
 // Code scaffolded by goctl. Safe to edit.
-// goctl 1.9.2
+// goctl 1.10.1
 
 package logic
 
 import (
 	"context"
-	"fungo/animate/model"
 
 	"fungo/animate/api/internal/svc"
 	"fungo/animate/api/internal/types"
+	"fungo/animate/model"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )

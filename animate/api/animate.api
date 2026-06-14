@@ -88,11 +88,17 @@ type (
 		Content   string `json:"content"`
 		CreatedAt string `json:"created_at"`
 	}
-		GetWishRsp {
+	GetWishRsp {
 		Wish WishInfo `json:"wish"`
 	}
 	GetWishListRsp {
 		Wishes []WishInfo `json:"wishes"`
+	}
+	SearchAnimateReq {
+		Key string `path:"key"`
+	}
+	SearchAnimateRsp {
+		Items []AnimateItem `json:"items"`
 	}
 )
 
@@ -111,6 +117,9 @@ service Animate {
 
 	@handler getAnimateDetail
 	get /getAnimateDetail/:id (GetAnimateDetailReq) returns (GetAnimateDetailRsp)
+
+	@handler uploadAnimate
+	post /uploadAnimate
 
 	@handler querySubscribeAndFavorite
 	get /querySubscribeAndFavorite/:id (GetSubscribeAndFavoriteReq) returns (GetSubscribeAndFavoriteRsp)
@@ -141,5 +150,8 @@ service Animate {
 
 	@handler getWish
 	get /getWish returns (GetWishRsp)
+
+	@handler searchAnimate
+	get /searchAnimate/:key returns (SearchAnimateRsp)
 }
 

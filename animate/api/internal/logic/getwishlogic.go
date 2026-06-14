@@ -1,17 +1,17 @@
 // Code scaffolded by goctl. Safe to edit.
-// goctl 1.9.2
+// goctl 1.10.1
 
 package logic
 
 import (
 	"context"
 	"errors"
-	"fungo/animate/model"
 	"math/rand"
 	"time"
 
 	"fungo/animate/api/internal/svc"
 	"fungo/animate/api/internal/types"
+	"fungo/animate/model"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -29,7 +29,6 @@ func NewGetWishLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetWishLo
 		svcCtx: svcCtx,
 	}
 }
-
 func (l *GetWishLogic) GetWish() (resp *types.GetWishRsp, err error) {
 	// 生成一个随机数
 	wish := &model.WishList{}

@@ -30,7 +30,10 @@ func NewGetAnimateDetailLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 func (l *GetAnimateDetailLogic) GetAnimateDetail(req *types.GetAnimateDetailReq) (resp *types.GetAnimateDetailRsp, err error) {
 	// 从数据库中读取数据
 	item := model.AnimateList{}
-	l.svcCtx.Db.Where("id = ?", req.ID).First(&item)
+	if err := l.svcCtx.Db.Where("id = ?", req.ID).First(&item).Error; err != nil {
+		return nil, err
+	}
+
 	resp = &types.GetAnimateDetailRsp{
 		Item: types.AnimateItem{
 			ID:          item.ID,

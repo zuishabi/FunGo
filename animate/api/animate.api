@@ -74,8 +74,31 @@ type (
 		Page int `path:"page"`
 	}
 	GetAllAnimatesRsp {
-		maxPage int      `json:"max_page"`
+		MaxPage int      `json:"max_page"`
 		List    []uint64 `json:"list"`
+	}
+	SendWishReq {
+		Content string `json:"content"`
+	}
+	SendWishRsp {
+		Wish WishInfo `json:"wish"`
+	}
+	WishInfo {
+		ID        uint64 `json:"id"`
+		Content   string `json:"content"`
+		CreatedAt string `json:"created_at"`
+	}
+	GetWishRsp {
+		Wish WishInfo `json:"wish"`
+	}
+	GetWishListRsp {
+		Wishes []WishInfo `json:"wishes"`
+	}
+	SearchAnimateReq {
+		Key string `path:"key"`
+	}
+	SearchAnimateRsp {
+		Items []AnimateItem `json:"items"`
 	}
 )
 
@@ -118,5 +141,17 @@ service Animate {
 
 	@handler getAllAnimates
 	get /getAllAnimates/:page (GetAllAnimtesReq) returns (GetAllAnimatesRsp)
+
+	@handler sendWish
+	post /sendWish (SendWishReq) returns (SendWishRsp)
+
+	@handler getWishList
+	get /getWishList returns (GetWishListRsp)
+
+	@handler getWish
+	get /getWish returns (GetWishRsp)
+
+	@handler searchAnimate
+	get /searchAnimate/:key returns (SearchAnimateRsp)
 }
 

@@ -38,7 +38,7 @@ func (a *AnimateServer) checkTodayUpdateOnce(db *gorm.DB) {
 	var updates []model.TodayUpdateList
 	db.Find(&updates)
 	for _, v := range updates {
-		if v.CreatedAt.Format("2006.01.02") == time.Now().Format("2006.01.02") {
+		if v.UpdatedAt.Format("2006.01.02") == time.Now().Format("2006.01.02") {
 			a.TodayUpdate = append(a.TodayUpdate, v.ID)
 		} else {
 			// 将这条数据从数据库中删除
@@ -48,7 +48,7 @@ func (a *AnimateServer) checkTodayUpdateOnce(db *gorm.DB) {
 }
 
 func (a *AnimateServer) checkTodayUpdate(db *gorm.DB) {
-	ticker := time.NewTicker(30 * time.Minute)
+	ticker := time.NewTicker(10 * time.Minute)
 	defer ticker.Stop()
 	for {
 		select {
@@ -69,6 +69,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	db.AutoMigrate(&model.AnimateList{})
 	db.AutoMigrate(&model.SubscribeFavoriteList{})
 	db.AutoMigrate(&model.AnimateUpdateInfo{})
+	db.AutoMigrate(&model.WishList{})
 
 	animateServer := &AnimateServer{}
 	animateServer.init(db)

@@ -28,7 +28,6 @@ func NewRecommendAnimateListLogic(ctx context.Context, svcCtx *svc.ServiceContex
 }
 
 func (l *RecommendAnimateListLogic) RecommendAnimateList() (resp *types.GetRecommendAnimateListRsp, err error) {
-	// todo: add your logic here and delete this line
 	item := model.AnimateList{}
 	l.svcCtx.Db.Where("id = ?", 1).First(&item)
 	resp = &types.GetRecommendAnimateListRsp{

@@ -1,0 +1,28 @@
+type (
+	AnimateItem {
+		ID          uint64   `json:"id"`
+		Name        string   `json:"name"`
+		Description string   `json:"description"`
+		Year        string   `json:"year"`
+		Tags        []string `json:"tags"`
+		State       string   `json:"state"`
+		Num         int      `json:"num"`
+	}
+	SearchAnimateByAIReq {
+		Description string `path:"description"`
+	}
+	SearchAnimateByAIRsp {
+		Items     []AnimateItem `json:"items"`
+		Message   string        `json:"message"`
+		MissItems []string      `json:"miss_items"`
+	}
+)
+
+@server (
+	prefix: /api/ai
+)
+service AI {
+	@handler searchAnimateByAI
+	get /searchAnimateByAI/:description (SearchAnimateByAIReq) returns (SearchAnimateByAIRsp)
+}
+

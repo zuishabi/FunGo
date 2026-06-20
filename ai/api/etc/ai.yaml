@@ -1,0 +1,12 @@
+Name: AI
+Host: 0.0.0.0
+Port: 8893
+Timeout: 30000
+
+DeepSeek:
+  ApiKey: sk-78462d3088c145879724a6ce46e5fc12
+  BaseURL: https://api.deepseek.com
+  Model: deepseek-v4-flash
+
+Mysql:
+  DataSource: root:861214959@tcp(127.0.0.1:3306)/FunGo?charset=utf8mb4&parseTime=True&loc=Local
